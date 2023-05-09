@@ -17,7 +17,7 @@ Then browse for the zip file you downloaded and click `Install Add-on`.
 
 4. The Add-on has it's own preferences where you can set the path to your texture folders.  
 Here you can use the texture folder from the file **example-map-and-textures.zip** you can find in the [latest Version](https://github.com/jensnt/io_import_build_map/releases/latest).  
-It contains small set of free textures fitting the example map **SHOCK.MAP**.  
+It contains a small set of free textures for the example map **SHOCK.MAP**.  
 Or you can use textures from a game if you own a copy. See: [Getting original textures](https://github.com/jensnt/io_import_build_map#getting-original-textures)
 
 All textures need to be in the PNG format and follow a specific naming schema. E.g.: 150-011.png
