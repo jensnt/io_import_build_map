@@ -8,14 +8,17 @@ This Blender Add-on lets you import maps in the BUILD format used by games such 
 
 To install the Add-on you need [Blender](https://www.blender.org/) in version 2.93 or later.
 
-1. Download the Add-on by clicking on the green `Code` button at the top of this page. From the drop down click `Download ZIP`.
-2. Install the Add-on by opening the Blender Preferences and clicking on `Install…` button at the top of the "Add-ons" section. Then browse for the zip file you downloaded and click `Install Add-on`.
-3. The Add-on will not be enabled automatically. You have to enable it by checking it's check box in the Add-ons list before you can use it.
+1. Download the [latest Version](https://github.com/jensnt/io_import_build_map/releases/latest) from the Release Page. You need the file **io_import_build_map.zip**. 
+3. Install the Add-on by opening the Blender Preferences and clicking on `Install…` button at the top of the "Add-ons" section.  
+Then browse for the zip file you downloaded and click `Install Add-on`.
+5. The Add-on will not be enabled automatically. You have to enable it by checking it's check box in the Add-ons list before you can use it.
 
 ![Preferences](/images/preferences.png)
 
-4. The Add-on has it's own preferences where you can set the path to your texture folder.
-Here you can use the texture folder from the example folder in the zip file. It contains small set of free textures fitting the example map.
+4. The Add-on has it's own preferences where you can set the path to your texture folders.  
+Here you can use the texture folder from the file **example-map-and-textures.zip** you can find in the [latest Version](https://github.com/jensnt/io_import_build_map/releases/latest).  
+It contains small set of free textures fitting the example map **SHOCK.MAP**.  
+Or you can use textures from a game if you own a copy. See: [Getting original textures](https://github.com/jensnt/io_import_build_map#getting-original-textures)
 
 All textures need to be in the PNG format and follow a specific naming schema. E.g.: 150-011.png
 
@@ -28,33 +31,40 @@ The following Import Options are available:
 - Object Prefix
   - This option specifies a prefix that will be used in the name of every imported object
 - Split Sectors
-  - If this is enabled, the floor and ceiling of every sector will be split off into a separate object. This is necessary if you want custom properties saved for sectors.
+  - If this is enabled, the floor and ceiling of every sector will be split off into a separate object.  
+    This is necessary if you want custom properties saved for sectors.
 - Split Walls
-  - If this is enabled, all walls will be split off into separate objects. This is neccessary if you want custom properties saved for walls.
+  - If this is enabled, all walls will be split off into separate objects.  
+    This is neccessary if you want custom properties saved for walls.
 - Split Sky
   - If this is enabled, floors and ceilings with parallaxing enabled will be split off into separate objects and sorted into the "Sky" collection.
 - Scale Sprites as in Game
-  - Some sprites are displayed in a different size in game compared to map editors. If this option is enabled the importer will try to scale them as they appear in game.
+  - Some sprites are displayed in a different size in game compared to map editors.  
+    If this option is enabled the importer will try to scale them as they appear in game.
 - Wall Sprite Offset
-  - This is useful to avoid Z-fighting for sprites that are placed right onto a wall. A small offset like 0.01 is enough in many cases.
+  - This is useful to avoid Z-fighting for sprites that are placed right onto a wall.  
+    A small offset like 0.01 is enough in many cases.
 - Use Custom User Art
   - If a Custom User Art texture folder is specified in the preferences you can use this option to enable or disable the usage of Custom User Art textures.
 - Reuse Materials
-  - This option specifies if materials that already exist in your blender project with the same name should be reused. If this is disabled new materials will be created with a suffix.
+  - This option specifies if materials that already exist in your blender project with the same name should be reused.  
+    If this is disabled new materials will be created with a suffix.
 - Pixel Shading
   - This option makes textures render with hard pixel edges.
 - Procedural Material Effects
-  - If this is enabled the add-on will create additional shader nodes to generate a little more realistic appearance of the materials. This works best with "Pixel Shading" disabled.
+  - If this is enabled the add-on will create additional shader nodes to generate a little more realistic appearance of the materials.  
+    This works best with "Pixel Shading" disabled.
 - Use Back Face Culling
   - This enables Back Face Culling for the created materials
 - Ignore Map Errors
-  - If you encounter a corrupted map that gives you errors where for example the number of sectors appears incorrect, you can try this option. The importer will try to ignore corrupted parts of the map. No guarantee for success, though.
+  - If you encounter a corrupted map that gives you errors where for example the number of sectors appears incorrect, you can try this option.  
+    The importer will try to ignore corrupted parts of the map. No guarantee for success, though.
 
 ## Custom Properties
 
 One feature of this Add-on is that it can save the original map data for every sector, wall and sprite into custom properties of those objects.
 For Sectors and Walls you need to enable the Import options "Split Sectors" and "Split Walls" for this to work.
-This allows for debugging you maps or for reusing those properties in Blender.
+This allows for debugging maps or for reusing those properties in Blender.
 
 ![Custom Properties](/images/custom-props.png)
 
