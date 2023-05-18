@@ -41,13 +41,16 @@ if "bpy" in locals():
     if "buildmap_materialmanager" in locals():
         importlib.reload(buildmap_materialmanager)
 
+import logging
+import os
+
 import bpy
+from bpy_extras.io_utils import ImportHelper
+
 from . import buildmap_format
 from . import buildmap_importer
 from . import buildmap_materialmanager
-from bpy_extras.io_utils import ImportHelper
-import os
-import logging
+
 log = logging.getLogger(__name__)
 
 
@@ -195,7 +198,7 @@ class ImportBuildMap(bpy.types.Operator, ImportHelper):
                 log.debug("The user art texture folder is set to: %s" % addon_prefs.userArtTextureFolder)
                 self.userArtTextureFolder = addon_prefs.userArtTextureFolder
         
-        if (self.textureFolder == None) and (self.userArtTextureFolder == None):
+        if (self.textureFolder is None) and (self.userArtTextureFolder is None):
             log.warning("No Texture Folder specified. Materials will be black. Specify in: Edit > Preferences > Add-ons > Import-Export: Import BUILD Map format")
             self.report({'WARNING'}, "No Texture Folder specified. Materials will be black. Specify in: Edit > Preferences > Add-ons > Import-Export: Import BUILD Map format")
         

@@ -20,14 +20,16 @@
 
 
 
-from typing import List
-from mathutils import Vector
-from enum import Enum
+import logging
 import math
+import os
 import struct
 from collections import namedtuple
-import os
-import logging
+from enum import Enum
+from typing import List
+
+from mathutils import Vector
+
 log = logging.getLogger(__name__)
 
 
@@ -57,153 +59,151 @@ class BuildMap:
     
     def __init__(self, mapFilePath, ignoreErrors=False):
         self.ignoreErrors = ignoreErrors
-        if isinstance(mapFilePath, str) and os.path.isfile(mapFilePath):
-            log.debug("Opening file: %s" % mapFilePath)
-            with open(mapFilePath, "rb") as mapFile:
-                self.data = BuildMap._MapData()
-                self.data.mapversion     = struct.unpack('<i', mapFile.read(4))[0]
-                if (self.data.mapversion == 7) or (self.data.mapversion == 8):
-                    self.data.posx       = struct.unpack('<i', mapFile.read(4))[0]
-                    self.data.posy       = struct.unpack('<i', mapFile.read(4))[0]
-                    self.data.posz       = struct.unpack('<i', mapFile.read(4))[0]
-                    self.data.ang        = struct.unpack('<h', mapFile.read(2))[0]
-                    self.data.cursectnum = struct.unpack('<h', mapFile.read(2))[0]
-                    self.data.numsectors = struct.unpack('<H', mapFile.read(2))[0]
-                    self.sectors: List[BuildMap.BuildSector] = list()
-                    self.walls:   List[BuildMap.BuildWall]   = list()
-                    self.sprites: List[BuildMap.BuildSprite] = list()
-                    
-                    log.debug("mapversion: %s" % self.data.mapversion)
-                    log.debug("posx: %s" % self.data.posx)
-                    log.debug("posy: %s" % self.data.posy)
-                    log.debug("posz: %s" % self.data.posz)
-                    log.debug("ang: %s" % self.data.ang)
-                    log.debug("cursectnum: %s" % self.data.cursectnum)
-                    log.debug("numsectors: %s" % self.data.numsectors)
-                    
-                    self.spawnAngle = BuildMap.calculateAngle(self.data.ang)
-                    
-                    ## Read Sectors
-                    for i in range(self.data.numsectors):
-                        self.sectors.append(self.BuildSector(mapFile, self, i))
-                    self.data.numwalls   = struct.unpack('<H', mapFile.read(2))[0]
-                    log.debug("numwalls: %s" % self.data.numwalls)
-                    
-                    ## Sanity Check: Number of walls in Secors has to match absolute number of walls
-                    numberOfWallsInAllSectors = 0
-                    for sect in self.sectors:
-                        numberOfWallsInAllSectors = numberOfWallsInAllSectors + sect.data.wallnum
-                    if numberOfWallsInAllSectors != self.data.numwalls:
-                        if not self.ignoreErrors:
-                            mapFile.close()
-                        self.handleError(ignorable=True, errorMsg="Number of walls found in Sectors %s does not match given absolute number of walls: %s !" % (numberOfWallsInAllSectors, self.data.numwalls))
-                    
-                    ## Read Walls
-                    for i in range(self.data.numwalls):
-                        self.walls.append(self.BuildWall(mapFile, self, i))
-                    ## Read Sprites
-                    self.data.numsprites = struct.unpack('<H', mapFile.read(2))[0]
-                    log.debug("numsprites: %s" % self.data.numsprites)
-                    for i in range(self.data.numsprites):
-                        self.sprites.append(self.BuildSprite(mapFile, self, i))
-                    mapFile.close()
-                    
-                    self.posxScal = float(self.data.posx) / 512
-                    self.posyScal = float(self.data.posy) / 512
-                    self.poszScal = float(self.data.posz) / 8192
-                    
-                    ## Find Wall Loops
-                    log.debug("Start Finding Wall Loops")
-                    for sect in self.sectors:
-                        sectorWallLastIdx = sect.data.wallptr+sect.data.wallnum-1
-                        while len(sect.walls) < sect.data.wallnum:
-                            wallLoop = list()
-                            if len(sect.walls) == 0:
-                                ## First loop starts with sect.data.wallptr
-                                firstWallInLoop = self.getWall(sect.data.wallptr)
-                                if firstWallInLoop == None:
-                                    sect.corrupted = True
-                                    self.handleError(ignorable=True, errorMsg="Unable to find next wall for first loop for sector %s" % sect.sectorIndex)
-                                    break
-                            else:
-                                ## To find the first wall of the next loop,
-                                ## search for the next wall that is not yet assigned
-                                ## starting from the Sectors first wall.
-                                findNextIdx = sect.data.wallptr
-                                while True:
-                                    wall = self.getWall(findNextIdx)
-                                    if wall == None:
-                                        sect.corrupted = True
-                                        self.handleError(ignorable=True, errorMsg="Unable to find next wall for next loop for sector %s" % sect.sectorIndex)
-                                        break
-                                    if wall not in sect.walls:
-                                        firstWallInLoop = wall
-                                        break
-                                    findNextIdx += 1
-                            if sect.corrupted:
-                                break
-                            ## Create the next wall loop
-                            currentWall = firstWallInLoop
-                            while True:
-                                sect.walls.append(currentWall)
-                                wallLoop.append(currentWall)
-                                if (currentWall.data.point2 < sect.data.wallptr) or (currentWall.data.point2 > sectorWallLastIdx):
-                                    sect.corrupted = True
-                                    self.handleError(ignorable=True, errorMsg="Wall loop extends outside sectors range! wall.data.point2 %s not in range of sector walls! %s to %s for sector %s" % (currentWall.data.point2, sect.data.wallptr, sectorWallLastIdx, sect.sectorIndex))
-                                currentWall = self.getWall(currentWall.data.point2)
-                                if (currentWall == None) or (currentWall in wallLoop) or ((self.ignoreErrors == False) and (len(sect.walls) >= sect.data.wallnum)):
-                                    if currentWall == None:
-                                        sect.corrupted = True
-                                        self.handleError(ignorable=True, errorMsg="Unable to find next wall for loop of sector %s ! Wall is outside of map range." % sect.sectorIndex)
-                                    elif currentWall != firstWallInLoop:
-                                        sect.corrupted = True
-                                        self.handleError(ignorable=True, errorMsg="Wall Loop did not end on first wall in loop in sector %s !" % sect.sectorIndex)
-                                    if len(sect.walls) > sect.data.wallnum:
-                                        sect.corrupted = True
-                                        log.error("Walls in loop exceed number of walls in sector %s !" % sect.sectorIndex)
-                                    break
-                            sect.wallLoops.append(wallLoop)
-                    log.debug("Finished Finding Wall Loops")
-                    
-                    ## Link Walls to Sectors
-                    for sect in self.getSectors():
-                        wallIndexInSect = 0
-                        for loop in sect.wallLoops:
-                            for wall in loop:
-                                wall.indexInSector = wallIndexInSect
-                                wall.sector = sect
-                                wallIndexInSect += 1
-                    
-                    ## Postprocessing: Find wall and sector neighbors of walls
-                    self.find_wall_neighbors()
-                    
-                    ## Postprocessing: Calculate Wall vectors and angles with now known basic properties
-                    for wall in self.walls:
-                        if (wall.sector == None) or (wall.sector.corrupted):
-                            log.warning("Wall %s is not used or sector is corrupted!" % wall.indexInMap)
-                        else:
-                            wall.__post_init__()
-                    
-                    ## Postprocessing: Calculate slope for x and y directions separately
-                    for sect in self.getSectors():
-                        for lvl in self.Level:
-                            sect.slopeVector[lvl.name] = Vector(( (math.sin(sect.walls[0].angle)    * sect.slopeAbs[lvl.name]),
-                                                                  (math.cos(sect.walls[0].angle)*-1 * sect.slopeAbs[lvl.name]) ))
-                    
-                    log.debug("Finished parsing file: %s" % mapFilePath)
-                    
-                else:
-                    self.handleError(ignorable=False, errorMsg="Unsupported file! Only BUILD Maps in version 7 or 8 are supported.")
-        else:
+        if not isinstance(mapFilePath, str) or not os.path.isfile(mapFilePath):
             self.handleError(ignorable=False, errorMsg="File not found: %s" % mapFilePath)
-    
+            return
+
+        log.debug("Opening file: %s" % mapFilePath)
+        self.readMapFile(mapFilePath)
+
+
+        self.posxScal = float(self.data.posx) / 512
+        self.posyScal = float(self.data.posy) / 512
+        self.poszScal = float(self.data.posz) / 8192
+
+        ## Find Wall Loops
+        log.debug("Start Finding Wall Loops")
+        for sect in self.sectors:
+            sectorWallLastIdx = sect.data.wallptr+sect.data.wallnum-1
+            while len(sect.walls) < sect.data.wallnum:
+                wallLoop = list()
+                if len(sect.walls) == 0:
+                    ## First loop starts with sect.data.wallptr
+                    firstWallInLoop = self.getWall(sect.data.wallptr)
+                    if firstWallInLoop is None:
+                        sect.corrupted = True
+                        self.handleError(ignorable=True, errorMsg="Unable to find next wall for first loop for sector %s" % sect.sectorIndex)
+                        break
+                else:
+                    ## To find the first wall of the next loop,
+                    ## search for the next wall that is not yet assigned
+                    ## starting from the Sectors first wall.
+                    findNextIdx = sect.data.wallptr
+                    while True:
+                        wall = self.getWall(findNextIdx)
+                        if wall is None:
+                            sect.corrupted = True
+                            self.handleError(ignorable=True, errorMsg="Unable to find next wall for next loop for sector %s" % sect.sectorIndex)
+                            break
+                        if wall not in sect.walls:
+                            firstWallInLoop = wall
+                            break
+                        findNextIdx += 1
+                if sect.corrupted:
+                    break
+                ## Create the next wall loop
+                currentWall = firstWallInLoop
+                while True:
+                    sect.walls.append(currentWall)
+                    wallLoop.append(currentWall)
+                    if (currentWall.data.point2 < sect.data.wallptr) or (currentWall.data.point2 > sectorWallLastIdx):
+                        sect.corrupted = True
+                        self.handleError(ignorable=True, errorMsg="Wall loop extends outside sectors range! wall.data.point2 %s not in range of sector walls! %s to %s for sector %s" % (currentWall.data.point2, sect.data.wallptr, sectorWallLastIdx, sect.sectorIndex))
+                    currentWall = self.getWall(currentWall.data.point2)
+                    if (currentWall is None) or (currentWall in wallLoop) or ((not self.ignoreErrors) and (len(sect.walls) >= sect.data.wallnum)):
+                        if currentWall is None:
+                            sect.corrupted = True
+                            self.handleError(ignorable=True, errorMsg="Unable to find next wall for loop of sector %s ! Wall is outside of map range." % sect.sectorIndex)
+                        elif currentWall != firstWallInLoop:
+                            sect.corrupted = True
+                            self.handleError(ignorable=True, errorMsg="Wall Loop did not end on first wall in loop in sector %s !" % sect.sectorIndex)
+                        if len(sect.walls) > sect.data.wallnum:
+                            sect.corrupted = True
+                            log.error("Walls in loop exceed number of walls in sector %s !" % sect.sectorIndex)
+                        break
+                sect.wallLoops.append(wallLoop)
+        log.debug("Finished Finding Wall Loops")
+
+        ## Link Walls to Sectors
+        for sect in self.getSectors():
+            wallIndexInSect = 0
+            for loop in sect.wallLoops:
+                for wall in loop:
+                    wall.indexInSector = wallIndexInSect
+                    wall.sector = sect
+                    wallIndexInSect += 1
+
+        ## Postprocessing: Find wall and sector neighbors of walls
+        self.find_wall_neighbors()
+
+        ## Postprocessing: Calculate Wall vectors and angles with now known basic properties
+        for wall in self.walls:
+            if (wall.sector is None) or (wall.sector.corrupted):
+                log.warning("Wall %s is not used or sector is corrupted!" % wall.indexInMap)
+            else:
+                wall.__post_init__()
+
+        ## Postprocessing: Calculate slope for x and y directions separately
+        for sect in self.getSectors():
+            for lvl in self.Level:
+                sect.slopeVector[lvl.name] = Vector(((math.sin(sect.walls[0].angle) * sect.slopeAbs[lvl.name]),
+                                                     (math.cos(sect.walls[0].angle) * -1 * sect.slopeAbs[lvl.name])))
+
+        log.debug("Finished parsing file: %s" % mapFilePath)
+
+    def readMapFile(self, mapFilePath):
+        with open(mapFilePath, "rb") as mapFile:
+            self.data = BuildMap._MapData()
+            self.data.mapversion = struct.unpack('<i', mapFile.read(4))[0]
+            if self.data.mapversion not in [7, 8]:
+                self.handleError(ignorable=False, errorMsg="Unsupported file! Only BUILD Maps in version 7 or 8 are supported.")
+                return
+
+            self.data.posx = struct.unpack('<i', mapFile.read(4))[0]
+            self.data.posy = struct.unpack('<i', mapFile.read(4))[0]
+            self.data.posz = struct.unpack('<i', mapFile.read(4))[0]
+            self.data.ang = struct.unpack('<h', mapFile.read(2))[0]
+            self.data.cursectnum = struct.unpack('<h', mapFile.read(2))[0]
+            self.data.numsectors = struct.unpack('<H', mapFile.read(2))[0]
+            self.sectors: List[BuildMap.BuildSector] = list()
+            self.walls:   List[BuildMap.BuildWall]   = list()
+            self.sprites: List[BuildMap.BuildSprite] = list()
+
+            log.debug("mapversion: %s" % self.data.mapversion)
+            log.debug("posx: %s" % self.data.posx)
+            log.debug("posy: %s" % self.data.posy)
+            log.debug("posz: %s" % self.data.posz)
+            log.debug("ang: %s" % self.data.ang)
+            log.debug("cursectnum: %s" % self.data.cursectnum)
+            log.debug("numsectors: %s" % self.data.numsectors)
+
+            self.spawnAngle = BuildMap.calculateAngle(self.data.ang)
+
+            ## Read Sectors
+            for i in range(self.data.numsectors):
+                self.sectors.append(self.BuildSector(mapFile, self, i))
+            self.data.numwalls = struct.unpack('<H', mapFile.read(2))[0]
+            log.debug("numwalls: %s" % self.data.numwalls)
+
+            ## Sanity Check: Number of walls in Secors has to match absolute number of walls
+            numberOfWallsInAllSectors = sum(map(lambda s: s.data.wallnum, self.sectors))
+
+            if numberOfWallsInAllSectors != self.data.numwalls:
+                self.handleError(ignorable=True,
+                                 errorMsg="Number of walls found in Sectors %s does not match given absolute number of walls: %s !" % (
+                                     numberOfWallsInAllSectors, self.data.numwalls))
+
+            ## Read Walls
+            for i in range(self.data.numwalls):
+                self.walls.append(self.BuildWall(mapFile, self, i))
+            ## Read Sprites
+            self.data.numsprites = struct.unpack('<H', mapFile.read(2))[0]
+            log.debug("numsprites: %s" % self.data.numsprites)
+            for i in range(self.data.numsprites):
+                self.sprites.append(self.BuildSprite(mapFile, self, i))
+
     def getWallListString(self, wall_list):
-        if len(wall_list) == 0:
-            return ""
-        wallNames = wall_list[0].getName()
-        for i in range(1, len(wall_list)):
-            wallNames += "; " + wall_list[i].getName()
-        return wallNames
+        return "; ".join([wall.getName() for wall in wall_list])
     
     def find_wall_neighbors(self):
         ## Find wall and sector neighbors of walls using Coordinates.
@@ -212,9 +212,9 @@ class BuildMap:
         walls_dict = dict()
         for wall in self.getWalls():
             nextWall = wall.getPoint2Wall()
-            if nextWall != None:
+            if nextWall is not None:
                 key = tuple(sorted([(wall.data.x, wall.data.y), (nextWall.data.x, nextWall.data.y)]))
-                if walls_dict.get(key, None) == None:
+                if walls_dict.get(key) is None:
                     walls_dict[key] = list()
                 walls_dict[key].append(wall)
         for wall_list in walls_dict.values():
@@ -242,11 +242,12 @@ class BuildMap:
         return self.walls[index]
     
     def getWalls(self):
-        return [wall for wall in self.walls if ((wall.sector != None) and (wall.sector.corrupted == False) and (wall.getPoint2Wall() != None))]
+        return [wall for wall in self.walls if
+                ((wall.sector is not None) and (not wall.sector.corrupted) and (wall.getPoint2Wall() is not None))]
     
     def handleError(self, ignorable=False, errorMsg="Unknown Error!"):
         log.error(errorMsg)
-        if (ignorable == False) or (self.ignoreErrors == False):
+        if (not ignorable) or (not self.ignoreErrors):
             raise ValueError(errorMsg)
     
     
@@ -276,54 +277,54 @@ class BuildMap:
             for lvl in self.bmap.Level:
                 self.slopeAbs[lvl.name] = 0.0
                 self.slopeVector[lvl.name]  = Vector((0.0, 0.0))
-            if self.data.floorstat&2 != 0:
+            if self.data.floorstat & 2 != 0:
                 self.slopeAbs[self.bmap.Level.FLOOR.name] = float(self.data.floorheinum) / 4096
-            if self.data.ceilingstat&2 != 0:
+            if self.data.ceilingstat & 2 != 0:
                 self.slopeAbs[self.bmap.Level.CEILING.name] = float(self.data.ceilingheinum) / 4096
         
         def getPicNum(self, level):
-            if level==self.bmap.Level.FLOOR:
+            if level is self.bmap.Level.FLOOR:
                 return self.data.floorpicnum
             else:
                 return self.data.ceilingpicnum
         
         def getTexPanning(self, level):
-            if level==self.bmap.Level.FLOOR:
+            if level is self.bmap.Level.FLOOR:
                 return float(self.data.floorxpanning) / 256, float(self.data.floorypanning) / 256 * -1
             else:
                 return float(self.data.ceilingxpanning) / 256, float(self.data.ceilingypanning) / 256 * -1
         
         def getTexSwapXY(self, level):
             ## mapster32: F flip texture
-            if level==self.bmap.Level.FLOOR:
+            if level is self.bmap.Level.FLOOR:
                 return bool((self.data.floorstat>>2)&1)
             else:
                 return bool((self.data.ceilingstat>>2)&1)
         
         def getTexExpansion(self, level):
             ## mapster32: E toggle sector texture expansion
-            if level==self.bmap.Level.FLOOR:
+            if level is self.bmap.Level.FLOOR:
                 return float(((self.data.floorstat>>3)&1)+1)
             else:
                 return float(((self.data.ceilingstat>>3)&1)+1)
         
         def getTexFlipX(self, level):
             ## mapster32: F flip texture
-            if level==self.bmap.Level.FLOOR:
+            if level is self.bmap.Level.FLOOR:
                 return bool((self.data.floorstat>>4)&1)
             else:
                 return bool((self.data.ceilingstat>>4)&1)
         
         def getTexFlipY(self, level):
             ## mapster32: F flip texture
-            if level==self.bmap.Level.FLOOR:
+            if level is self.bmap.Level.FLOOR:
                 return bool((self.data.floorstat>>5)&1)
             else:
                 return bool((self.data.ceilingstat>>5)&1)
         
         def isTexAlignToFirstWall(self, level):
             ## mapster32: R toggle sector texture relativity alignment
-            if level==self.bmap.Level.FLOOR:
+            if level is self.bmap.Level.FLOOR:
                 return bool((self.data.floorstat>>6)&1)
             else:
                 return bool((self.data.ceilingstat>>6)&1)
@@ -359,13 +360,13 @@ class BuildMap:
                     if sprite.data.lotag == 13:  ## C-9 Explosive Sprite
                         zC9Sprite = sprite.zScal
                         break
-            if (zC9Sprite!=None) and (level==self.bmap.Level.FLOOR):
+            if (zC9Sprite is not None) and (level == self.bmap.Level.FLOOR):
                 zScal = zC9Sprite
             return (self.walls[0].xScal - xPos)*slopeX + (self.walls[0].yScal - yPos)*slopeY + zScal
         
         def isParallaxing(self, level):
             ## mapster32: P toggle parallax
-            if level==self.bmap.Level.FLOOR:
+            if level is self.bmap.Level.FLOOR:
                 return bool(self.data.floorstat&1)
             else:
                 return bool(self.data.ceilingstat&1)
@@ -377,11 +378,8 @@ class BuildMap:
                 return "%sSector_%03d" % (prefix, self.sectorIndex)
         
         def getSpritesString(self):
-            string = ""
-            for sprite in self.sprites:
-                string += "%s " % sprite.spriteIndex
-            return string.rstrip()
-    
+            return " ".join([sprite.spriteIndex for sprite in self.sprites]).rstrip()
+
     
     class BuildWall:
         wallDataNames = namedtuple('SectorData', ['x', 'y', 'point2', 'nextwall', 'nextsector', 'cstat', 'picnum',
@@ -410,7 +408,9 @@ class BuildMap:
             self.length    = self.wallVect.length
         
         def getPoint2Wall(self):
-            if (self.data.point2 < self.sector.data.wallptr) or (self.data.point2 >= self.bmap.data.numwalls) or (self.data.point2 >= (self.sector.data.wallptr + self.sector.data.wallnum)):
+            if (self.data.point2 < self.sector.data.wallptr) \
+                    or (self.data.point2 >= self.bmap.data.numwalls) \
+                    or (self.data.point2 >= (self.sector.data.wallptr + self.sector.data.wallnum)):
                 return None
             else:
                 return self.bmap.getWall(self.data.point2)
@@ -424,26 +424,28 @@ class BuildMap:
         
         def getNeighborWall(self):
             neighborSect = self.getNeighborSector()
-            if (neighborSect == None) or (self.neighborWallIndexInSector < 0) or (self.neighborWallIndexInSector >= neighborSect.data.wallnum):
+            if (neighborSect is None) \
+                    or (self.neighborWallIndexInSector < 0) \
+                    or (self.neighborWallIndexInSector >= neighborSect.data.wallnum):
                 return None
             else:
                 return neighborSect.walls[self.neighborWallIndexInSector]
         
         def getTexBottomSwap(self):
-            return bool((self.data.cstat>>1)&1)
+            return bool((self.data.cstat >> 1) & 1)
         
         def getTexAlignFlag(self):
-            return bool((self.data.cstat>>2)&1)
+            return bool((self.data.cstat >> 2) & 1)
         
         def getTexRotate(self):
             ## mapster32: R
-            return bool((self.data.cstat>>12)&1)
+            return bool((self.data.cstat >> 12) & 1)
         
         def getTexFlipXFactor(self):
-            return float(1) - float((self.data.cstat>>3)&1)*2
+            return float(1) - float((self.data.cstat >> 3) & 1) * 2
         
         def getTexFlipYFactor(self):
-            return float(1) - float((self.data.cstat>>8)&1)*2
+            return float(1) - float((self.data.cstat >> 8) & 1) * 2
         
         def getName(self, useIndexInMap=False, prefix=""):
             if useIndexInMap:
@@ -459,7 +461,7 @@ class BuildMap:
                 ## Create a first Wall Part.
                 ## In case there is no neighbor Sector, this will remain the only one and it will be a "white" wall.
                 self.wallParts.append(self.WallPart(self, neighborSector, isRedTopWall=False))
-                if neighborSector != None:
+                if neighborSector is not None:
                     ## In case a neighbor sector exists we must create a second wall part.
                     ## A Wall that connects to another Sector is a "red" wall that has a bottom and a top part.
                     self.wallParts.append(self.WallPart(self, neighborSector, isRedTopWall=True))
@@ -482,7 +484,7 @@ class BuildMap:
                 if not isRedTopWall:
                     self.sectBot      = self.wall.sector
                     self.sectBotLevel = self.bmap.Level.FLOOR
-                    if self.neighborSector == None:
+                    if self.neighborSector is None:
                         ## Case 1 (simple white wall)
                         self.wallType      = self.bmap.WallType.WHITE
                         self.sectTop       = self.wall.sector
@@ -514,7 +516,7 @@ class BuildMap:
                 
                 self.zBottom = self.sectBot.zScal[self.sectBotLevel.name]
                 nextWall = self.wall.getPoint2Wall()
-                if nextWall != None:
+                if nextWall is not None:
                     self.vertices.append(Vector(( self.wall.xScal, self.wall.yScal, self.sectBot.getHeightAtPos(self.wall.xScal, self.wall.yScal, self.sectBotLevel) )))
                     self.vertices.append(Vector((  nextWall.xScal,  nextWall.yScal, self.sectBot.getHeightAtPos( nextWall.xScal,  nextWall.yScal, self.sectBotLevel) )))
                     self.vertices.append(Vector((  nextWall.xScal,  nextWall.yScal, self.sectTop.getHeightAtPos( nextWall.xScal,  nextWall.yScal, self.sectTopLevel) )))
@@ -561,7 +563,7 @@ class BuildMap:
             def getPicNum(self):
                 ## Get picnum, taking swapped textures for bottom walls into account
                 neighborWall = self.wall.getNeighborWall()
-                if (self.wallType == self.bmap.WallType.REDBOT) and self.wall.getTexBottomSwap() and (neighborWall != None):
+                if (self.wallType == self.bmap.WallType.REDBOT) and self.wall.getTexBottomSwap() and (neighborWall is not None):
                     return neighborWall.data.picnum
                 else:
                     return self.wall.data.picnum
@@ -590,7 +592,7 @@ class BuildMap:
             self.yScal       = float(self.data.y) / 512
             self.zScal       = float(self.data.z) / 8192
             self.angle       = BuildMap.calculateAngle(self.data.ang)
-            if self.data.sectnum >= 0 and self.data.sectnum < self.bmap.data.numsectors:
+            if 0 <= self.data.sectnum < self.bmap.data.numsectors:
                 self.bmap.sectors[self.data.sectnum].sprites.append(self)
             else:
                 log.warning("Sprite %s sectnum is not in range of maps number of sectors: %s" % (self.spriteIndex, self.bmap.data.numsectors))
@@ -647,9 +649,10 @@ class BuildMap:
             if like_in_game and (self.isGunAmmo() or self.isHealthEquipment()):
                 if self.data.picnum == 26:  ## HEAVYHBOMB
                     return (0.125, 0.125, 0.125)
-                if self.data.picnum == 40:  ## AMMO
+                elif self.data.picnum == 40:  ## AMMO
                     return (0.25, 0.25, 0.25)
-                return (0.5, 0.5, 0.5)
+                else:
+                    return (0.5, 0.5, 0.5)
             else:
                 return scale
         

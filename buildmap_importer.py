@@ -20,11 +20,13 @@
 
 
 
-import bpy
-from mathutils import Vector
-import math
-import mathutils
 import logging
+import math
+
+import bpy
+import mathutils
+from mathutils import Vector
+
 log = logging.getLogger(__name__)
 
 
@@ -91,7 +93,7 @@ class BuildMapImporter:
             obj["extra"]           = sector.data.extra
     
     def saveWallCustomProps(self, wall, obj):
-        if (wall != None) and (obj != None):
+        if (wall is not None) and (obj is not None):
             obj["x"]          = wall.data.x
             obj["y"]          = wall.data.y
             obj["point2"]     = wall.data.point2
@@ -121,7 +123,7 @@ class BuildMapImporter:
             obj["extra"]      = wall.data.extra
     
     def saveSpriteCustomProps(self, sprite, obj):
-        if (sprite != None) and (obj != None):
+        if (sprite is not None) and (obj is not None):
             obj["x"] = sprite.data.x
             obj["y"] = sprite.data.y
             obj["z"] = sprite.data.z
@@ -155,14 +157,12 @@ class BuildMapImporter:
             obj["lotag"] = sprite.data.lotag
             obj["hitag"] = sprite.data.hitag
             obj["extra"] = sprite.data.extra
-    
-    
-    
+
     def getEdgesFromPolylines(self, polylines):
         edges = list()
         for polyline in polylines:
             for i in range(len(polyline)):
-                edges.append((polyline[i], polyline[(i+1)%len(polyline)]))
+                edges.append((polyline[i], polyline[(i + 1) % len(polyline)]))
         return edges
     
     def cutPolygonIntoTrapezoids(self, polylines):
@@ -179,11 +179,13 @@ class BuildMapImporter:
                     xCoords.append((x0, x1))
             
             xCoords.sort(key=lambda x: x[0] + x[1])
-            
+
             xIdx = 0
             while xIdx < len(xCoords):
                 xEndIdx = xIdx + 1
-                while (xEndIdx+2 < len(xCoords)) and (xCoords[xEndIdx+1][0] <= xCoords[xEndIdx][0]) and (xCoords[xEndIdx+1][1] <= xCoords[xEndIdx][1]):
+                while (xEndIdx+2 < len(xCoords)) \
+                        and (xCoords[xEndIdx+1][0] <= xCoords[xEndIdx][0]) \
+                        and (xCoords[xEndIdx+1][1] <= xCoords[xEndIdx][1]):
                     xEndIdx += 2
                 trapezoids.append([ Vector(( xCoords[xIdx][0],    yCoords[yIdx]   )),
                                     Vector(( xCoords[xEndIdx][0], yCoords[yIdx]   )),
@@ -242,30 +244,29 @@ class BuildMapImporter:
                 collection = spriteCollection
             
             spriteWithEqualData = spriteCache.get(sprite.getDataKey(), None)
-            if spriteWithEqualData == None:
+            if spriteWithEqualData is None:
                 objCrtr = self.meshObjectCreator(self.matManager, name=sprite.getName(prefix=self.objectPrefix))
                 dims = self.matManager.getDimensions(sprite.data.picnum)
                 scale_x = dims[0] / 64
                 scale_y = dims[1] / 64
                 
                 if sprite.isFloorSprite():
-                    objCrtr.verts =     [Vector((-1 * scale_y, -1 * scale_x, 0)),
-                                         Vector(( 1 * scale_y, -1 * scale_x, 0)),
-                                         Vector(( 1 * scale_y,  1 * scale_x, 0)),
-                                         Vector((-1 * scale_y,  1 * scale_x, 0))]
+                    objCrtr.verts = [Vector((-1 * scale_y, -1 * scale_x, 0)),
+                                     Vector(( 1 * scale_y, -1 * scale_x, 0)),
+                                     Vector(( 1 * scale_y,  1 * scale_x, 0)),
+                                     Vector((-1 * scale_y,  1 * scale_x, 0))]
+                elif sprite.isRealCentered():
+                    objCrtr.verts = [Vector((0,  1 * scale_x, -1 * scale_y)),
+                                     Vector((0,  1 * scale_x,  1 * scale_y)),
+                                     Vector((0, -1 * scale_x,  1 * scale_y)),
+                                     Vector((0, -1 * scale_x, -1 * scale_y))]
                 else:
-                    if sprite.isRealCentered():
-                        objCrtr.verts = [Vector((0,  1 * scale_x, -1 * scale_y)),
-                                         Vector((0,  1 * scale_x,  1 * scale_y)),
-                                         Vector((0, -1 * scale_x,  1 * scale_y)),
-                                         Vector((0, -1 * scale_x, -1 * scale_y))]
-                    else:
-                        objCrtr.verts = [Vector((0,  1 * scale_x, 0 * scale_y)),
-                                         Vector((0,  1 * scale_x, 2 * scale_y)),
-                                         Vector((0, -1 * scale_x, 2 * scale_y)),
-                                         Vector((0, -1 * scale_x, 0 * scale_y))]
+                    objCrtr.verts = [Vector((0,  1 * scale_x, 0 * scale_y)),
+                                     Vector((0,  1 * scale_x, 2 * scale_y)),
+                                     Vector((0, -1 * scale_x, 2 * scale_y)),
+                                     Vector((0, -1 * scale_x, 0 * scale_y))]
                 
-                objCrtr.addFace([0, 1, 2 ,3], sprite.data.picnum)
+                objCrtr.addFace([0, 1, 2, 3], sprite.data.picnum)
                 flipX = int(sprite.isFlippedX())
                 flipY = int(sprite.isFlippedY())
                 objCrtr.vertUVs = [(1-flipX, flipY), (1-flipX, 1-flipY), (flipX, 1-flipY), (flipX, flipY)]
@@ -294,8 +295,6 @@ class BuildMapImporter:
     
     
     def calculateSectorUVCoords(self, sector, xCoord, yCoord, level):
-        uvx             = float(0)
-        uvy             = float(0)
         picDimX,picDimY = self.matManager.getDimensions(sector.getPicNum(level))
         panX,panY       = sector.getTexPanning(level)
         expFactor       = sector.getTexExpansion(level)
@@ -419,14 +418,14 @@ class BuildMapImporter:
             if not tessellationValid:
                 log.warning("tessellate_polygon result invalid for sector %s likely because of degenerate geometry! Using Fallback." % sector.sectorIndex)
                 log.debug("tessellate_polygon result invalid for sector %s: sector.data.wallnum %s  !=  len(faceIndicesCovered) %s  faceIndicesCovered: %s" % (sector.sectorIndex, sector.data.wallnum, len(faceIndicesCovered), faceIndicesCovered))
-            
+
             for level in self.bmap.Level:
                 objCrtr = objCrtrMap
                 if splitSky and sector.isParallaxing(level):
                     objCrtr = objCrtrSky
                 if tessellationValid:
                     for faceIdxTriple in faceIndices:
-                        objCrtr.addFace([objCrtr.vertIdx+faceIdxTriple[0], objCrtr.vertIdx+faceIdxTriple[1], objCrtr.vertIdx+faceIdxTriple[2]], sector.getPicNum(level), flipped=(level==self.bmap.Level.CEILING))
+                        objCrtr.addFace([objCrtr.vertIdx+faceIdxTriple[0], objCrtr.vertIdx+faceIdxTriple[1], objCrtr.vertIdx+faceIdxTriple[2]], sector.getPicNum(level), flipped=(level is self.bmap.Level.CEILING))
                         for faceIdx in faceIdxTriple:
                             objCrtr.vertUVs.append(self.calculateSectorUVCoords(sector, sector.walls[faceIdx].xScal, sector.walls[faceIdx].yScal, level))
                     for wall in sector.walls:
@@ -442,8 +441,8 @@ class BuildMapImporter:
                             objCrtr.vertUVs.append(self.calculateSectorUVCoords(sector, vert.x, vert.y, level))
                             face.append(objCrtr.vertIdx)
                             objCrtr.vertIdx += 1
-                        objCrtr.addFace(face, sector.getPicNum(level), flipped=(level==self.bmap.Level.FLOOR))
-            
+                        objCrtr.addFace(face, sector.getPicNum(level), flipped=(level == self.bmap.Level.FLOOR))
+
             for wall in sector.walls:
                 objCrtrWall = objCrtrMap
                 for wPart in wall.getWallParts():
@@ -477,9 +476,7 @@ class BuildMapImporter:
             objCrtrMap.create(collectionMapGeo)
             if splitSky:
                 objCrtrSky.create(collectionSkyGeo)
-    
-    
-    
+
     class meshObjectCreator:
         def __init__(self, matManager, name="NewObject"):
             self.matManager = matManager
@@ -500,32 +497,32 @@ class BuildMapImporter:
             self.faceIsFlipped.append(flipped)
         
         def create(self, collection=None):
-            if (len(self.verts) > 0):
-                mesh = bpy.data.meshes.new(self.name)
-                mesh.from_pydata(self.verts, self.edges, self.faces)
-                # mesh.validate(verbose=True)  # useful for development when the mesh may be invalid.
-                self.obj = bpy.data.objects.new(self.name, mesh)
-                
-                if collection != None:
-                    collection.objects.link(self.obj)
-                
-                ## Create the materials and append them to the new object
-                matIdx = 0
-                for picnum in set(self.facePicnums):
-                    mat = self.matManager.getMaterial(picnum)
-                    self.obj.data.materials.append(mat)
-                    self.picnumMatIdxDict[picnum] = matIdx
-                    matIdx += 1
-                
-                ## Create UV Map
-                newUVMap = self.obj.data.uv_layers.new(name="UVMap", do_init=False)
-                for idx, loop in enumerate(self.obj.data.loops):
-                    newUVMap.data[idx].uv = self.vertUVs[idx]
-                
-                ## Loop over the faces again to assign the materials and flip normals for correct face orientation
-                for face in self.obj.data.polygons:
-                    face.material_index = self.picnumMatIdxDict[self.facePicnums[face.index]]
-                    if self.faceIsFlipped[face.index]:
-                        face.flip()
-                
+            if len(self.verts) <= 0:
+                return self.obj
+
+            mesh = bpy.data.meshes.new(self.name)
+            mesh.from_pydata(self.verts, self.edges, self.faces)
+            # mesh.validate(verbose=True)  # useful for development when the mesh may be invalid.
+            self.obj = bpy.data.objects.new(self.name, mesh)
+
+            if collection is not None:
+                collection.objects.link(self.obj)
+
+            ## Create the materials and append them to the new object
+            for matIdx, picnum in enumerate(set(self.facePicnums)):
+                mat = self.matManager.getMaterial(picnum)
+                self.obj.data.materials.append(mat)
+                self.picnumMatIdxDict[picnum] = matIdx
+
+            ## Create UV Map
+            newUVMap = self.obj.data.uv_layers.new(name="UVMap", do_init=False)
+            for idx, loop in enumerate(self.obj.data.loops):
+                newUVMap.data[idx].uv = self.vertUVs[idx]
+
+            ## Loop over the faces again to assign the materials and flip normals for correct face orientation
+            for face in self.obj.data.polygons:
+                face.material_index = self.picnumMatIdxDict[self.facePicnums[face.index]]
+                if self.faceIsFlipped[face.index]:
+                    face.flip()
+
             return self.obj
