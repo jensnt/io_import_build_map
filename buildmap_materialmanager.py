@@ -20,10 +20,12 @@
 
 
 
-import bpy
+import logging
 import os
 import re
-import logging
+
+import bpy
+
 log = logging.getLogger(__name__)
 
 
@@ -47,16 +49,16 @@ class materialManager:
         for existingMat in bpy.data.materials:
             self.existingMats[existingMat.name] = existingMat
         
-        if (texFolder != None) and (os.path.exists(texFolder)):
+        if (texFolder is not None) and (os.path.exists(texFolder)):
             self.textureFolder = texFolder
             self.texFileMap = self.getFileMap(self.textureFolder)
-        if (userArtTexFolder != None) and (os.path.exists(userArtTexFolder)):
+        if (userArtTexFolder is not None) and (os.path.exists(userArtTexFolder)):
             self.userArtTextureFolder = userArtTexFolder
             self.userArtTexFileMap = self.getFileMap(self.userArtTextureFolder)
     
     def getFileMap(self, path):
         filemap = dict()
-        if (path != None) and (os.path.exists(path)):
+        if (path is not None) and (os.path.exists(path)):
             for root, dirs, files in os.walk(path):
                 for filename in files:
                     if filename.endswith(".png"):
@@ -82,26 +84,26 @@ class materialManager:
         ## First search for User Art if in User Art range and available
         if (picnum >= self.picnumUserArtStart) and isinstance(userArtTexFileMap, dict) and (len(userArtTexFileMap) > 0):
             ## Try to get User Art file with completely defined filename
-            imgFilePath = userArtTexFileMap.get(imgFileNameExpected, None)
+            imgFilePath = userArtTexFileMap.get(imgFileNameExpected)
             ## If none was found using completely defined filename, try with RegEx
-            if imgFilePath == None:
+            if imgFilePath is None:
                 regex = re.compile(r"^%03d-.{3}\.png$" % self.getArtFileIndex(picnum))
                 for imgFileName in userArtTexFileMap.keys():
                     if regex.match(imgFileName):
-                        imgFilePath = userArtTexFileMap.get(imgFileName, None)
+                        imgFilePath = userArtTexFileMap.get(imgFileName)
                         break
                 log.debug("Tried to find User Art using RegEx, resulting in: %s" % imgFilePath)
         
         ## If we could not get any User Art file, search the normal file map
-        if (imgFilePath == None) and isinstance(texFileMap, dict) and (len(texFileMap) > 0):
-            imgFilePath = texFileMap.get(imgFileNameExpected, None)
+        if (imgFilePath is None) and isinstance(texFileMap, dict) and (len(texFileMap) > 0):
+            imgFilePath = texFileMap.get(imgFileNameExpected)
         
         ## If we could still not get any image file, search the User Art file map again in the full picnum range
         ## Normally the User Art folder should only contain textures in the range: picnum >= 3584
         ## But the user might have put textures outside that range there anyway...
-        if (imgFilePath == None) and isinstance(userArtTexFileMap, dict) and (len(userArtTexFileMap) > 0):
-            imgFilePath = userArtTexFileMap.get(imgFileNameExpected, None)
-            if imgFilePath != None:
+        if (imgFilePath is None) and isinstance(userArtTexFileMap, dict) and (len(userArtTexFileMap) > 0):
+            imgFilePath = userArtTexFileMap.get(imgFileNameExpected)
+            if imgFilePath is not None:
                 log.debug("Non User Art texture found in User Art folder: %s" % imgFilePath)
         
         return imgFilePath
@@ -113,30 +115,26 @@ class materialManager:
         defaultImgName = self.getTextureFileName(picnum)
         
         ## Try reusing an existing material
-        if self.reuseExistingMaterials and (existingMat != None):
+        if self.reuseExistingMaterials and (existingMat is not None):
             ## Try to find the image node in the existing material
-            if imgFilePath != None:
-                imageSearchName = os.path.basename(imgFilePath)
-            else:
-                imageSearchName = defaultImgName
-            existingNodeImg = None
+            imageSearchName = defaultImgName if imgFilePath is None else os.path.basename(imgFilePath)
+
             for node in existingMat.node_tree.nodes:
-                if (node.type == 'TEX_IMAGE') and (node.name == 'Image Texture') and (node.image != None) and (node.image.name == imageSearchName):
-                    existingNodeImg = node
+                if (node.type == 'TEX_IMAGE') \
+                        and (node.name == 'Image Texture') \
+                        and (node.image is not None) \
+                        and (node.image.name == imageSearchName):
+                    self.dimensionsDict[picnum] = node.image.size
                     break
-            if existingNodeImg != None:
-                self.dimensionsDict[picnum] = existingNodeImg.image.size
             else:
                 log.debug("Found existing material but no image node!: %s  %s" % (matName, imageSearchName))
-                if imgFilePath != None:
+                if imgFilePath is not None:
                     ## In case no image node is found but we know the path of the texture,
                     ## just generate one to get the size from it. It can be deleted again afterwards.
                     nodeImg = existingMat.node_tree.nodes.new(type='ShaderNodeTexImage')
-                    nodeImg.location = (-300,625)
-                    if self.sampleClosestTexel:
-                        nodeImg.interpolation = 'Closest'
-                    else:
-                        nodeImg.interpolation = 'Smart'
+                    nodeImg.location = (-300, 625)
+                    nodeImg.interpolation = 'Closest' if self.sampleClosestTexel else 'Smart'
+
                     nodeImg.image = bpy.data.images.load(imgFilePath)
                     self.dimensionsDict[picnum] = nodeImg.image.size
                     existingMat.node_tree.nodes.remove(nodeImg)  ## Delete the Node again
@@ -148,26 +146,22 @@ class materialManager:
         newMat = bpy.data.materials.new(name=matName)
         newMat.use_nodes = True
         newMat.blend_method = 'CLIP'
-        if self.useBackfaceCulling:
-            newMat.use_backface_culling = True
+        newMat.use_backface_culling = self.useBackfaceCulling
         
         ## Remove all nodes in the materials node tree
         for node in newMat.node_tree.nodes:
             newMat.node_tree.nodes.remove(node)
-        
+
         ## Create and connect basic nodes
         nodePbr = newMat.node_tree.nodes.new(type='ShaderNodeBsdfPrincipled')
-        nodePbr.location = (0,325)
+        nodePbr.location = (0, 325)
         nodeMatOut = newMat.node_tree.nodes.new(type='ShaderNodeOutputMaterial')
-        nodeMatOut.location = (300,325)
+        nodeMatOut.location = (300, 325)
         newMat.node_tree.links.new(nodePbr.outputs["BSDF"], nodeMatOut.inputs["Surface"])
         
         nodeImg = newMat.node_tree.nodes.new(type='ShaderNodeTexImage')
-        nodeImg.location = (-400,325)
-        if self.sampleClosestTexel:
-            nodeImg.interpolation = 'Closest'
-        else:
-            nodeImg.interpolation = 'Smart'
+        nodeImg.location = (-400, 325)
+        nodeImg.interpolation = 'Closest' if self.sampleClosestTexel else 'Smart'
         newMat.node_tree.links.new(nodeImg.outputs["Color"], nodePbr.inputs["Base Color"])
         newMat.node_tree.links.new(nodeImg.outputs["Alpha"], nodePbr.inputs["Alpha"])
         
@@ -197,14 +191,14 @@ class materialManager:
             nodeMix.blend_type = 'MULTIPLY'
             nodeMix.inputs["Fac"].default_value = 0.8
             
-            nodeImg.location = (-900,325)
-            nodeBevel.location = (-200,-300)
-            nodeBump1.location = (-400,-300)
-            nodeBump2.location = (-600,-100)
-            nodeMusgrave.location = (-600,-300)
-            nodeTexCoord.location = (-800,-300)
-            nodeAO.location = (-800,625)
-            nodeMix.location = (-400,625)
+            nodeImg.location = (-900, 325)
+            nodeBevel.location = (-200, -300)
+            nodeBump1.location = (-400, -300)
+            nodeBump2.location = (-600, -100)
+            nodeMusgrave.location = (-600, -300)
+            nodeTexCoord.location = (-800, -300)
+            nodeAO.location = (-800, 625)
+            nodeMix.location = (-400, 625)
             
             newMat.node_tree.links.new(nodeBevel.outputs["Normal"], nodePbr.inputs["Normal"])
             newMat.node_tree.links.new(nodeBump1.outputs["Normal"], nodeBevel.inputs["Normal"])
@@ -217,7 +211,7 @@ class materialManager:
             newMat.node_tree.links.new(nodeImg.outputs["Color"], nodeMix.inputs["Color1"])
             newMat.node_tree.links.new(nodeMix.outputs["Color"], nodePbr.inputs["Base Color"])
         
-        if imgFilePath != None:
+        if imgFilePath is not None:
             nodeImg.image = bpy.data.images.load(imgFilePath)
             self.dimensionsDict[picnum] = nodeImg.image.size
         else:
@@ -226,22 +220,12 @@ class materialManager:
         
         self.materialDict[picnum] = newMat
         return newMat
-    
+
     def getMaterial(self, picnum):
-        if picnum in self.materialDict:
-            return self.materialDict[picnum]
-        else:
-            return self.__createMaterial(picnum)
+        return self.materialDict.get(picnum) or self.__createMaterial(picnum)
     
     def getDimensions(self, picnum):
-        if picnum in self.materialDict:
-            if picnum in self.dimensionsDict:
-                return self.dimensionsDict[picnum]
-            else:
-                return (32, 32)
-        else:
+        if picnum not in self.materialDict:
             self.__createMaterial(picnum)
-            if picnum in self.dimensionsDict:
-                return self.dimensionsDict[picnum]
-            else:
-                return (32, 32)
+            
+        return self.dimensionsDict.get(picnum, (32, 32))
