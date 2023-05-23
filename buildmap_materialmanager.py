@@ -222,7 +222,7 @@ class materialManager:
         return newMat
 
     def getMaterial(self, picnum):
-        return self.materialDict.get(picnum, self.__createMaterial(picnum))
+        return self.materialDict.get(picnum) or self.__createMaterial(picnum)
     
     def getDimensions(self, picnum):
         if picnum not in self.materialDict:
