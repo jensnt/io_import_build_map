@@ -20,7 +20,9 @@ Here you can use the texture folder from the file **example-map-and-textures.zip
 It contains a small set of free textures for the example map **SHOCK.MAP**.  
 Or you can use textures from a game if you own a copy. See: [Getting original textures](https://github.com/jensnt/io_import_build_map#getting-original-textures)
 
-All textures need to be in the PNG format and follow a specific naming schema. E.g.: 150-011.png
+#### All textures need to be PNG files and use one of the following numbering formats as name:
+- As created by Xtract tool: 056-002.png
+- BUILD tile number as name: 0568.png (up to 8 leading zeros allowed)
 
 ## Import Options
 
