@@ -66,7 +66,7 @@ class materialManager:
         return filemap
 
     def getArtFileNumber(self, picnum):
-        return int(picnum / 256)
+        return int(picnum // 256)
     
     def getArtFileIndex(self, picnum):
         return int(picnum % 256)
@@ -74,35 +74,42 @@ class materialManager:
     def getTextureFileName(self, picnum):
         return "%03d-%03d.png" % (self.getArtFileIndex(picnum), self.getArtFileNumber(picnum))
     
+    def getTextureFileNamePattern(self, picnum):
+        ## Match file names like: 056-002.png 56-2.png 000568.png 568.png
+        return r"^(?:0{0,3}%d-0{0,3}%d\.png|0{0,8}%d\.png)$" % (self.getArtFileIndex(picnum), self.getArtFileNumber(picnum), picnum)
+    
     def getMaterialName(self, picnum):
         return "picnum%04d_%03d-%03d" % (picnum, self.getArtFileIndex(picnum), self.getArtFileNumber(picnum))
+        
+    def getDictValueByKeyRegex(self, dictionary, regex):
+        for key, value in dictionary.items():
+            if regex.match(key):
+                return value
+        return None
     
     def findPicnumFile(self, picnum, texFileMap, userArtTexFileMap=None):
         imgFilePath = None
-        imgFileNameExpected = self.getTextureFileName(picnum)
+        regexDefault = re.compile(self.getTextureFileNamePattern(picnum))
         
         ## First search for User Art if in User Art range and available
         if (picnum >= self.picnumUserArtStart) and isinstance(userArtTexFileMap, dict) and (len(userArtTexFileMap) > 0):
-            ## Try to get User Art file with completely defined filename
-            imgFilePath = userArtTexFileMap.get(imgFileNameExpected)
-            ## If none was found using completely defined filename, try with RegEx
+            ## Try to get User Art file with default filename
+            imgFilePath = self.getDictValueByKeyRegex(userArtTexFileMap, regexDefault)
             if imgFilePath is None:
-                regex = re.compile(r"^%03d-.{3}\.png$" % self.getArtFileIndex(picnum))
-                for imgFileName in userArtTexFileMap.keys():
-                    if regex.match(imgFileName):
-                        imgFilePath = userArtTexFileMap.get(imgFileName)
-                        break
-                log.debug("Tried to find User Art using RegEx, resulting in: %s" % imgFilePath)
+                ## A filename matching this regex does not specify the whole picnum and is only acceptable as fallback for User Art:
+                regexUserArtFallback = re.compile(r"^0{0,2}%d-.{3}\.png$" % self.getArtFileIndex(picnum))
+                imgFilePath = self.getDictValueByKeyRegex(userArtTexFileMap, regexUserArtFallback)
+                log.debug("Tried to find User Art for picnum %d using fallback RegEx, resulting in: %s" % (picnum, imgFilePath))
         
         ## If we could not get any User Art file, search the normal file map
         if (imgFilePath is None) and isinstance(texFileMap, dict) and (len(texFileMap) > 0):
-            imgFilePath = texFileMap.get(imgFileNameExpected)
+            imgFilePath = self.getDictValueByKeyRegex(texFileMap, regexDefault)
         
         ## If we could still not get any image file, search the User Art file map again in the full picnum range
         ## Normally the User Art folder should only contain textures in the range: picnum >= 3584
         ## But the user might have put textures outside that range there anyway...
         if (imgFilePath is None) and isinstance(userArtTexFileMap, dict) and (len(userArtTexFileMap) > 0):
-            imgFilePath = userArtTexFileMap.get(imgFileNameExpected)
+            imgFilePath = self.getDictValueByKeyRegex(userArtTexFileMap, regexDefault)
             if imgFilePath is not None:
                 log.debug("Non User Art texture found in User Art folder: %s" % imgFilePath)
         
