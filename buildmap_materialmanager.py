@@ -71,6 +71,9 @@ class materialManager:
     def getArtFileIndex(self, picnum):
         return int(picnum % 256)
     
+    def getTextureFileNameDefault(self, picnum):
+        return "%04d.png" % picnum
+    
     def getTextureFileNamePattern(self, picnum):
         ## Match file names like: 056-002.png 56-2.png 000568.png 568.png
         return r"^(?:0{0,3}%d-0{0,3}%d\.png|0{0,8}%d\.png)$" % (self.getArtFileIndex(picnum), self.getArtFileNumber(picnum), picnum)
@@ -219,7 +222,7 @@ class materialManager:
             self.dimensionsDict[picnum] = nodeImg.image.size
         else:
             # Create a new default image for this material since we don't have a texture file
-            nodeImg.image = bpy.data.images.new(name=defaultImgName, width=32, height=32, alpha=True)
+            nodeImg.image = bpy.data.images.new(name=self.getTextureFileNameDefault(picnum), width=32, height=32, alpha=True)
         
         self.materialDict[picnum] = newMat
         return newMat
