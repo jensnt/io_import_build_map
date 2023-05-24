@@ -61,7 +61,7 @@ class materialManager:
         if (path is not None) and (os.path.exists(path)):
             for root, dirs, files in os.walk(path):
                 for filename in files:
-                    if filename.endswith(".png"):
+                    if filename.endswith(".png") or filename.endswith(".jpg"):
                         filemap[filename] = os.path.join(root, filename)
         return filemap
 
@@ -75,8 +75,8 @@ class materialManager:
         return "%04d.png" % picnum
     
     def getTextureFileNamePattern(self, picnum):
-        ## Match file names like: 056-002.png 56-2.png 000568.png 568.png
-        return r"^(?:0{0,3}%d-0{0,3}%d\.png|0{0,8}%d\.png)$" % (self.getArtFileIndex(picnum), self.getArtFileNumber(picnum), picnum)
+        ## Match file names like: 056-002.png 56-2.png 000568.jpg 568.jpg
+        return r"^(?:0{0,3}%d-0{0,3}%d\.(jpg|png)|0{0,8}%d\.(jpg|png))$" % (self.getArtFileIndex(picnum), self.getArtFileNumber(picnum), picnum)
     
     def getMaterialName(self, picnum):
         return "picnum%04d_%03d-%03d" % (picnum, self.getArtFileIndex(picnum), self.getArtFileNumber(picnum))
@@ -96,7 +96,7 @@ class materialManager:
             imgFilePath = self.getDictValueByKeyRegex(userArtTexFileMap, regexDefault)
             if imgFilePath is None:
                 ## A filename matching this regex does not specify the whole picnum and is only acceptable as fallback for User Art:
-                regexUserArtFallback = re.compile(r"^0{0,2}%d-.{3}\.png$" % self.getArtFileIndex(picnum))
+                regexUserArtFallback = re.compile(r"^0{0,2}%d-.{3}\.(jpg|png)$" % self.getArtFileIndex(picnum))
                 imgFilePath = self.getDictValueByKeyRegex(userArtTexFileMap, regexUserArtFallback)
                 log.debug("Tried to find User Art for picnum %d using fallback RegEx, resulting in: %s" % (picnum, imgFilePath))
         
