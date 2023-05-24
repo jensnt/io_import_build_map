@@ -71,9 +71,6 @@ class materialManager:
     def getArtFileIndex(self, picnum):
         return int(picnum % 256)
     
-    def getTextureFileName(self, picnum):
-        return "%03d-%03d.png" % (self.getArtFileIndex(picnum), self.getArtFileNumber(picnum))
-    
     def getTextureFileNamePattern(self, picnum):
         ## Match file names like: 056-002.png 56-2.png 000568.png 568.png
         return r"^(?:0{0,3}%d-0{0,3}%d\.png|0{0,8}%d\.png)$" % (self.getArtFileIndex(picnum), self.getArtFileNumber(picnum), picnum)
@@ -87,9 +84,8 @@ class materialManager:
                 return value
         return None
     
-    def findPicnumFile(self, picnum, texFileMap, userArtTexFileMap=None):
+    def findPicnumFile(self, picnum, regexDefault, texFileMap, userArtTexFileMap=None):
         imgFilePath = None
-        regexDefault = re.compile(self.getTextureFileNamePattern(picnum))
         
         ## First search for User Art if in User Art range and available
         if (picnum >= self.picnumUserArtStart) and isinstance(userArtTexFileMap, dict) and (len(userArtTexFileMap) > 0):
@@ -118,23 +114,23 @@ class materialManager:
     def __createMaterial(self, picnum):
         matName = self.getMaterialName(picnum)
         existingMat = self.existingMats.get(matName, None)
-        imgFilePath = self.findPicnumFile(picnum, self.texFileMap, self.userArtTexFileMap)
-        defaultImgName = self.getTextureFileName(picnum)
+        regexDefault = re.compile(self.getTextureFileNamePattern(picnum))
+        imgFilePath = self.findPicnumFile(picnum, regexDefault, self.texFileMap, self.userArtTexFileMap)
         
         ## Try reusing an existing material
         if self.reuseExistingMaterials and (existingMat is not None):
             ## Try to find the image node in the existing material
-            imageSearchName = defaultImgName if imgFilePath is None else os.path.basename(imgFilePath)
-
             for node in existingMat.node_tree.nodes:
-                if (node.type == 'TEX_IMAGE') \
-                        and (node.name == 'Image Texture') \
-                        and (node.image is not None) \
-                        and (node.image.name == imageSearchName):
-                    self.dimensionsDict[picnum] = node.image.size
-                    break
+                if (node.type == 'TEX_IMAGE') and (node.name == 'Image Texture') and (node.image is not None):
+                    if imgFilePath is not None and (node.image.name == os.path.basename(imgFilePath)):
+                        self.dimensionsDict[picnum] = node.image.size
+                        break
+                    if regexDefault.match(node.image.name):
+                        self.dimensionsDict[picnum] = node.image.size
+                        log.debug("Image Node in existing material %s found using regex." % matName)
+                        break
             else:
-                log.debug("Found existing material but no image node!: %s  %s" % (matName, imageSearchName))
+                log.debug("Found existing material %s but no image node! Known imgFilePath: %s" % (matName, imgFilePath))
                 if imgFilePath is not None:
                     ## In case no image node is found but we know the path of the texture,
                     ## just generate one to get the size from it. It can be deleted again afterwards.
