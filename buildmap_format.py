@@ -156,7 +156,7 @@ class BuildMap:
             self.data = BuildMap._MapData()
             self.data.mapversion = struct.unpack('<i', mapFile.read(4))[0]
             if self.data.mapversion not in [7, 8, 9]:
-                self.handleError(ignorable=False, errorMsg="Unsupported file! Only BUILD Maps in version 7 or 8 are supported.")
+                self.handleError(ignorable=False, errorMsg="Unsupported file! Only BUILD Maps in version 7, 8 and 9 are supported.")
                 return
 
             self.data.posx = struct.unpack('<i', mapFile.read(4))[0]
