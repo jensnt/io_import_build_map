@@ -155,7 +155,7 @@ class BuildMap:
         with open(mapFilePath, "rb") as mapFile:
             self.data = BuildMap._MapData()
             self.data.mapversion = struct.unpack('<i', mapFile.read(4))[0]
-            if self.data.mapversion not in [7, 8]:
+            if self.data.mapversion not in [7, 8, 9]:
                 self.handleError(ignorable=False, errorMsg="Unsupported file! Only BUILD Maps in version 7 or 8 are supported.")
                 return
 
@@ -272,8 +272,10 @@ class BuildMap:
             self.slopeVector     = dict()  ## slope values (float 1 = 45 degrees)
             self.corrupted       = False
             
-            self.zScal[self.bmap.Level.FLOOR.name]   = float(self.data.floorz) / 8192
-            self.zScal[self.bmap.Level.CEILING.name] = float(self.data.ceilingz) / 8192
+            self.zScal[self.bmap.Level.FLOOR.name]   = float(self.data.floorz) / 8192     ## TODO DEPRECATED
+            self.zScal[self.bmap.Level.CEILING.name] = float(self.data.ceilingz) / 8192   ## TODO DEPRECATED
+            self.level: List[BuildSector.SectLevel] = list()
+            
             for lvl in self.bmap.Level:
                 self.slopeAbs[lvl.name] = 0.0
                 self.slopeVector[lvl.name]  = Vector((0.0, 0.0))
@@ -281,65 +283,65 @@ class BuildMap:
                 self.slopeAbs[self.bmap.Level.FLOOR.name] = float(self.data.floorheinum) / 4096
             if self.data.ceilingstat & 2 != 0:
                 self.slopeAbs[self.bmap.Level.CEILING.name] = float(self.data.ceilingheinum) / 4096
+            
+            for lvl in self.bmap.Level:
+                self.level.append(self.SectLevel(self, lvl))
         
-        def getPicNum(self, level):
+        def getPicNum(self, level):   ## TODO DEPRECATED
             if level is self.bmap.Level.FLOOR:
                 return self.data.floorpicnum
             else:
                 return self.data.ceilingpicnum
         
-        def getTexPanning(self, level):
+        def getTexPanning(self, level):   ## TODO DEPRECATED
             if level is self.bmap.Level.FLOOR:
                 return float(self.data.floorxpanning) / 256, float(self.data.floorypanning) / 256 * -1
             else:
                 return float(self.data.ceilingxpanning) / 256, float(self.data.ceilingypanning) / 256 * -1
         
-        def getTexSwapXY(self, level):
+        def getTexSwapXY(self, level):   ## TODO DEPRECATED
             ## mapster32: F flip texture
             if level is self.bmap.Level.FLOOR:
-                return bool((self.data.floorstat>>2)&1)
+                return bool(self.data.floorstat & 0x4)
             else:
-                return bool((self.data.ceilingstat>>2)&1)
+                return bool(self.data.ceilingstat & 0x4)
         
-        def getTexExpansion(self, level):
+        def getTexExpansion(self, level):   ## TODO DEPRECATED
             ## mapster32: E toggle sector texture expansion
             if level is self.bmap.Level.FLOOR:
                 return float(((self.data.floorstat>>3)&1)+1)
             else:
                 return float(((self.data.ceilingstat>>3)&1)+1)
         
-        def getTexFlipX(self, level):
+        def getTexFlipX(self, level):   ## TODO DEPRECATED
             ## mapster32: F flip texture
             if level is self.bmap.Level.FLOOR:
-                return bool((self.data.floorstat>>4)&1)
+                return bool(self.data.floorstat & 0x10)
             else:
-                return bool((self.data.ceilingstat>>4)&1)
+                return bool(self.data.ceilingstat & 0x10)
         
-        def getTexFlipY(self, level):
+        def getTexFlipY(self, level):   ## TODO DEPRECATED
             ## mapster32: F flip texture
             if level is self.bmap.Level.FLOOR:
-                return bool((self.data.floorstat>>5)&1)
+                return bool(self.data.floorstat & 0x20)
             else:
-                return bool((self.data.ceilingstat>>5)&1)
+                return bool(self.data.ceilingstat & 0x20)
         
-        def isTexAlignToFirstWall(self, level):
+        def isTexAlignToFirstWall(self, level):   ## TODO DEPRECATED
             ## mapster32: R toggle sector texture relativity alignment
             if level is self.bmap.Level.FLOOR:
-                return bool((self.data.floorstat>>6)&1)
+                return bool(self.data.floorstat & 0x40)
             else:
-                return bool((self.data.ceilingstat>>6)&1)
+                return bool(self.data.ceilingstat & 0x40)
         
-        def getTexFlipXFactor(self, level):
+        def getTexFlipXFactor(self, level):   ## TODO DEPRECATED
             if self.getTexSwapXY(level) == self.getTexFlipX(level):
                 return 1
             else:
                 return -1
         
-        def getTexFlipYFactor(self, level):
-            if self.getTexSwapXY(level) == self.getTexFlipY(level):
-                return 1
-            else:
-                return -1
+        def getTexFlipYFactor(self, level):   ## TODO DEPRECATED
+            return 1 if self.getTexSwapXY(level) == self.getTexFlipY(level) else -1
         
         def getPolyLines(self):
             polylines = list()
@@ -350,7 +352,7 @@ class BuildMap:
                 polylines.append(polyline)
             return polylines
         
-        def getHeightAtPos(self, xPos, yPos, level, respectEffectors=False):  ## TODO respectEffectors is experimental for now
+        def getHeightAtPos(self, xPos, yPos, level, respectEffectors=False):  ## TODO respectEffectors is experimental for now      ## TODO DEPRECATED
             slopeX = self.slopeVector[level.name].x
             slopeY = self.slopeVector[level.name].y
             zScal = self.zScal[level.name]
@@ -364,12 +366,21 @@ class BuildMap:
                 zScal = zC9Sprite
             return (self.walls[0].xScal - xPos)*slopeX + (self.walls[0].yScal - yPos)*slopeY + zScal
         
-        def isParallaxing(self, level):
+        def isParallaxing(self, level):   ## TODO DEPRECATED
             ## mapster32: P toggle parallax
             if level is self.bmap.Level.FLOOR:
-                return bool(self.data.floorstat&1)
+                return bool(self.data.floorstat & 0x1)
             else:
-                return bool(self.data.ceilingstat&1)
+                return bool(self.data.ceilingstat & 0x1)
+        
+        def isTrorOmit(self, level):  ## Experimental      ## TODO DEPRECATED
+            if self.bmap.data.mapversion == 9:
+                if level is self.bmap.Level.FLOOR:
+                    return bool(self.data.floorstat & 0x400) and ((self.data.floorstat & 0x80) == 0)
+                else:
+                    return bool(self.data.ceilingstat & 0x400) and ((self.data.ceilingstat & 0x80) == 0)
+            else:
+                return False
         
         def getName(self, sky=False, prefix=""):
             if sky:
@@ -379,7 +390,78 @@ class BuildMap:
         
         def getSpritesString(self):
             return " ".join([sprite.spriteIndex for sprite in self.sprites]).rstrip()
+    
+        class SectLevel:
+            def __init__(self, parentSector, leveltype):
+                self.sector = parentSector
+                self.bmap   = parentSector.bmap
+                self.type   = leveltype
+                if self.type is self.bmap.Level.FLOOR:
+                    self.zScal = float(self.sector.data.floorz) / 8192
+                    self.cstat = self.sector.data.floorstat
+                else:
+                    self.zScal = float(self.sector.data.ceilingz) / 8192
+                    self.cstat = self.sector.data.ceilingstat
 
+            def getPicNum(self):
+                if self.type is self.bmap.Level.FLOOR:
+                    return self.sector.data.floorpicnum
+                else:
+                    return self.sector.data.ceilingpicnum
+            
+            def getTexPanning(self):
+                if self.type is self.bmap.Level.FLOOR:
+                    return float(self.sector.data.floorxpanning) / 256, float(self.sector.data.floorypanning) / 256 * -1
+                else:
+                    return float(self.sector.data.ceilingxpanning) / 256, float(self.sector.data.ceilingypanning) / 256 * -1
+            
+            def getTexSwapXY(self): ## mapster32: F flip texture
+                return bool(self.cstat & 0x4)
+            
+            def getTexExpansion(self): ## mapster32: E toggle sector texture expansion
+                return float(((self.cstat>>3)&1)+1)
+            
+            def getTexFlipX(self): ## mapster32: F flip texture
+                return bool(self.cstat & 0x10)
+            
+            def getTexFlipY(self): ## mapster32: F flip texture
+                return bool(self.cstat & 0x20)
+            
+            def isTexAlignToFirstWall(self): ## mapster32: R toggle sector texture relativity alignment
+                return bool(self.cstat & 0x40)
+            
+            def getTexFlipXFactor(self):
+                return 1 if self.getTexSwapXY() == self.getTexFlipX() else -1
+            
+            def getTexFlipYFactor(self):
+                return 1 if self.getTexSwapXY() == self.getTexFlipY() else -1
+            
+            def getHeightAtPos(self, xPos, yPos, respectEffectors=False):  ## TODO respectEffectors is experimental for now
+                slopeX = self.sector.slopeVector[self.type.name].x
+                slopeY = self.sector.slopeVector[self.type.name].y
+                zScal = self.zScal
+                zC9Sprite = None
+                if respectEffectors:
+                    for sprite in self.sector.sprites:
+                        if sprite.data.lotag == 13:  ## C-9 Explosive Sprite
+                            zC9Sprite = sprite.zScal
+                            break
+                if (zC9Sprite is not None) and (self.type == self.bmap.Level.FLOOR):
+                    zScal = zC9Sprite
+                return (self.sector.walls[0].xScal - xPos)*slopeX + (self.sector.walls[0].yScal - yPos)*slopeY + zScal
+            
+            def isParallaxing(self): ## mapster32: P toggle parallax
+                return bool(self.cstat & 0x1)
+            
+            def isTrorOmit(self):  ## Experimental
+                return (self.bmap.data.mapversion == 9) and bool(self.cstat & 0x400) and ((self.cstat & 0x80) == 0)
+            
+            def getName(self, sky=False, prefix=""):
+                lvlName = "Floor" if self.type == self.bmap.Level.FLOOR else "Ceiling"
+                if sky:
+                    return "%sSector_%03d_%s_Sky" % (prefix, self.sectorIndex, lvlName)
+                else:
+                    return "%sSector_%03d_%s" % (prefix, self.sectorIndex, lvlName)
     
     class BuildWall:
         wallDataNames = namedtuple('SectorData', ['x', 'y', 'point2', 'nextwall', 'nextsector', 'cstat', 'picnum',
@@ -432,14 +514,13 @@ class BuildMap:
                 return neighborSect.walls[self.neighborWallIndexInSector]
         
         def getTexBottomSwap(self):
-            return bool((self.data.cstat >> 1) & 1)
+            return bool(self.data.cstat & 0x2)
         
         def getTexAlignFlag(self):
-            return bool((self.data.cstat >> 2) & 1)
+            return bool(self.data.cstat & 0x4)
         
-        def getTexRotate(self):
-            ## mapster32: R
-            return bool((self.data.cstat >> 12) & 1)
+        def getTexRotate(self): ## mapster32: R
+            return bool(self.data.cstat & 0x1000)
         
         def getTexFlipXFactor(self):
             return float(1) - float((self.data.cstat >> 3) & 1) * 2
