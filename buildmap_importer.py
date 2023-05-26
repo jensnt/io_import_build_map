@@ -58,22 +58,32 @@ class BuildMapImporter:
             obj["wallnum"]         = sector.data.wallnum
             obj["ceilingz"]        = sector.data.ceilingz
             obj["floorz"]          = sector.data.floorz
-            obj["ceilingstat bit0 parallaxing"] = (sector.data.ceilingstat>>0)&1
-            obj["ceilingstat bit1 sloped"]      = (sector.data.ceilingstat>>1)&1
-            obj["ceilingstat bit2 swap-xy"]     = (sector.data.ceilingstat>>2)&1
-            obj["ceilingstat bit3 smoothness"]  = (sector.data.ceilingstat>>3)&1
-            obj["ceilingstat bit4 x-flip"]      = (sector.data.ceilingstat>>4)&1
-            obj["ceilingstat bit5 y-flip"]      = (sector.data.ceilingstat>>5)&1
-            obj["ceilingstat bit6 align"]       = (sector.data.ceilingstat>>6)&1
-            obj["ceilingstat bit7-15 reserved"] = "0b%s" % format(((sector.data.ceilingstat>>7)&511),'b').zfill(9)
-            obj["floorstat bit0 parallaxing"]   = (sector.data.floorstat>>0)&1
-            obj["floorstat bit1 sloped"]        = (sector.data.floorstat>>1)&1
-            obj["floorstat bit2 swap-xy"]       = (sector.data.floorstat>>2)&1
-            obj["floorstat bit3 smoothness"]    = (sector.data.floorstat>>3)&1
-            obj["floorstat bit4 x-flip"]        = (sector.data.floorstat>>4)&1
-            obj["floorstat bit5 y-flip"]        = (sector.data.floorstat>>5)&1
-            obj["floorstat bit6 align"]         = (sector.data.floorstat>>6)&1
-            obj["floorstat bit7-15 reserved"]   = "0b%s" % format(((sector.data.floorstat>>7)&511),'b').zfill(9)
+            obj["ceilingstat bit00 parallaxing"] = (sector.data.ceilingstat>>0)&1
+            obj["ceilingstat bit01 sloped"]      = (sector.data.ceilingstat>>1)&1
+            obj["ceilingstat bit02 swap-xy"]     = (sector.data.ceilingstat>>2)&1
+            obj["ceilingstat bit03 smoothness"]  = (sector.data.ceilingstat>>3)&1
+            obj["ceilingstat bit04 x-flip"]      = (sector.data.ceilingstat>>4)&1
+            obj["ceilingstat bit05 y-flip"]      = (sector.data.ceilingstat>>5)&1
+            obj["ceilingstat bit06 align"]       = (sector.data.ceilingstat>>6)&1
+            obj["ceilingstat bit07 masked"]      = (sector.data.ceilingstat>>7)&1
+            obj["ceilingstat bit08 trans"]       = (sector.data.ceilingstat>>8)&1
+            obj["ceilingstat bit09 TROR movblk"] = (sector.data.ceilingstat>>9)&1
+            obj["ceilingstat bit10 TROR"]        = (sector.data.ceilingstat>>10)&1
+            obj["ceilingstat bit11 TROR prjblk"] = (sector.data.ceilingstat>>11)&1
+            obj["ceilingstat bit12-15 reserved"] = "0b%s" % format(((sector.data.ceilingstat>>12)&15),'b').zfill(4)
+            obj["floorstat bit00 parallaxing"]   = (sector.data.floorstat>>0)&1
+            obj["floorstat bit01 sloped"]        = (sector.data.floorstat>>1)&1
+            obj["floorstat bit02 swap-xy"]       = (sector.data.floorstat>>2)&1
+            obj["floorstat bit03 smoothness"]    = (sector.data.floorstat>>3)&1
+            obj["floorstat bit04 x-flip"]        = (sector.data.floorstat>>4)&1
+            obj["floorstat bit05 y-flip"]        = (sector.data.floorstat>>5)&1
+            obj["floorstat bit06 align"]         = (sector.data.floorstat>>6)&1
+            obj["floorstat bit07 masked"]        = (sector.data.floorstat>>7)&1
+            obj["floorstat bit08 trans"]         = (sector.data.floorstat>>8)&1
+            obj["floorstat bit09 TROR movblk"]   = (sector.data.floorstat>>9)&1
+            obj["floorstat bit10 TROR"]          = (sector.data.floorstat>>10)&1
+            obj["floorstat bit11 TROR prjblk"]   = (sector.data.floorstat>>11)&1
+            obj["floorstat bit12-15 reserved"]   = "0b%s" % format(((sector.data.floorstat>>12)&15),'b').zfill(4)
             obj["ceilingpicnum"]   = sector.data.ceilingpicnum
             obj["ceilingheinum"]   = sector.data.ceilingheinum
             obj["ceilingshade"]    = sector.data.ceilingshade
@@ -99,17 +109,20 @@ class BuildMapImporter:
             obj["point2"]     = wall.data.point2
             obj["nextwall"]   = wall.data.nextwall
             obj["nextsector"] = wall.data.nextsector
-            obj["cstat bit0 blocking1"]         = (wall.data.cstat>>0)&1
-            obj["cstat bit1 swap bot of invis"] = (wall.data.cstat>>1)&1
-            obj["cstat bit2 align to bot"]      = (wall.data.cstat>>2)&1
-            obj["cstat bit3 flip x"]            = (wall.data.cstat>>3)&1
-            obj["cstat bit4 masking"]           = (wall.data.cstat>>4)&1
-            obj["cstat bit5 1-way"]             = (wall.data.cstat>>5)&1
-            obj["cstat bit6 blocking2"]         = (wall.data.cstat>>6)&1
-            obj["cstat bit7 transluscence"]     = (wall.data.cstat>>7)&1
-            obj["cstat bit8 flip y"]            = (wall.data.cstat>>8)&1
-            obj["cstat bit9 transl. rev."]      = (wall.data.cstat>>9)&1
-            obj["cstat bit10-15 reserved"]      = "0b%s" % format(((wall.data.cstat>>10)&63),'b').zfill(6)
+            obj["cstat bit00 blocking1"]         = (wall.data.cstat>>0)&1
+            obj["cstat bit01 swap bot of invis"] = (wall.data.cstat>>1)&1
+            obj["cstat bit02 align to bot"]      = (wall.data.cstat>>2)&1
+            obj["cstat bit03 flip x"]            = (wall.data.cstat>>3)&1
+            obj["cstat bit04 masking"]           = (wall.data.cstat>>4)&1
+            obj["cstat bit05 1-way"]             = (wall.data.cstat>>5)&1
+            obj["cstat bit06 blocking2"]         = (wall.data.cstat>>6)&1
+            obj["cstat bit07 transluscence"]     = (wall.data.cstat>>7)&1
+            obj["cstat bit08 flip y"]            = (wall.data.cstat>>8)&1
+            obj["cstat bit09 transl. rev."]      = (wall.data.cstat>>9)&1
+            obj["cstat bit10 yax upwall"]        = (wall.data.cstat>>10)&1
+            obj["cstat bit11 yax downwall"]      = (wall.data.cstat>>11)&1
+            obj["cstat bit12 rot 90deg"]         = (wall.data.cstat>>12)&1
+            obj["cstat bit13-15 reserved"]       = "0b%s" % format(((wall.data.cstat>>13)&7),'b').zfill(3)
             obj["picnum"]     = wall.data.picnum
             obj["overpicnum"] = wall.data.overpicnum
             obj["shade"]      = wall.data.shade
@@ -127,17 +140,17 @@ class BuildMapImporter:
             obj["x"] = sprite.data.x
             obj["y"] = sprite.data.y
             obj["z"] = sprite.data.z
-            obj["cstat bit0 blocking1"]         = (sprite.data.cstat>>0)&1
-            obj["cstat bit1 transluscence"]     = (sprite.data.cstat>>1)&1
-            obj["cstat bit2 flip x"]            = (sprite.data.cstat>>2)&1
-            obj["cstat bit3 flip y"]            = (sprite.data.cstat>>3)&1
-            obj["cstat bit5-4 face-wall-floor"] = "0b%s" % format(((sprite.data.cstat>>4)&3),'b').zfill(2)
-            obj["cstat bit6 1-sided"]           = (sprite.data.cstat>>6)&1
-            obj["cstat bit7 real center"]       = (sprite.data.cstat>>7)&1
-            obj["cstat bit8 blocking2"]         = (sprite.data.cstat>>8)&1
-            obj["cstat bit9 transl. rev."]      = (sprite.data.cstat>>9)&1
-            obj["cstat bit10-14 reserved"]      = "0b%s" % format(((sprite.data.cstat>>10)&31),'b').zfill(5)
-            obj["cstat bit15 invisible"]        = (sprite.data.cstat>>15)&1
+            obj["cstat bit00 blocking1"]          = (sprite.data.cstat>>0)&1
+            obj["cstat bit01 transluscence"]      = (sprite.data.cstat>>1)&1
+            obj["cstat bit02 flip x"]             = (sprite.data.cstat>>2)&1
+            obj["cstat bit03 flip y"]             = (sprite.data.cstat>>3)&1
+            obj["cstat bit05-04 face-wall-floor"] = "0b%s" % format(((sprite.data.cstat>>4)&3),'b').zfill(2)
+            obj["cstat bit06 1-sided"]            = (sprite.data.cstat>>6)&1
+            obj["cstat bit07 real center"]        = (sprite.data.cstat>>7)&1
+            obj["cstat bit08 blocking2"]          = (sprite.data.cstat>>8)&1
+            obj["cstat bit09 transl. rev."]       = (sprite.data.cstat>>9)&1
+            obj["cstat bit10-14 reserved"]        = "0b%s" % format(((sprite.data.cstat>>10)&31),'b').zfill(5)
+            obj["cstat bit15 invisible"]          = (sprite.data.cstat>>15)&1
             obj["picnum"] = sprite.data.picnum
             obj["shade"] = sprite.data.shade
             obj["pal"] = sprite.data.pal
@@ -420,28 +433,29 @@ class BuildMapImporter:
                 log.debug("tessellate_polygon result invalid for sector %s: sector.data.wallnum %s  !=  len(faceIndicesCovered) %s  faceIndicesCovered: %s" % (sector.sectorIndex, sector.data.wallnum, len(faceIndicesCovered), faceIndicesCovered))
 
             for level in self.bmap.Level:
-                objCrtr = objCrtrMap
-                if splitSky and sector.isParallaxing(level):
-                    objCrtr = objCrtrSky
-                if tessellationValid:
-                    for faceIdxTriple in faceIndices:
-                        objCrtr.addFace([objCrtr.vertIdx+faceIdxTriple[0], objCrtr.vertIdx+faceIdxTriple[1], objCrtr.vertIdx+faceIdxTriple[2]], sector.getPicNum(level), flipped=(level is self.bmap.Level.CEILING))
-                        for faceIdx in faceIdxTriple:
-                            objCrtr.vertUVs.append(self.calculateSectorUVCoords(sector, sector.walls[faceIdx].xScal, sector.walls[faceIdx].yScal, level))
-                    for wall in sector.walls:
-                        objCrtr.verts.append(Vector((wall.xScal, wall.yScal*-1, sector.getHeightAtPos(wall.xScal, wall.yScal, level)*-1)))
-                        objCrtr.vertIdx += 1
-                else:
-                    ## Fallback in case tessellate_polygon did not succeed - likely because of degenerate geometry
-                    for trapezoid in self.cutPolygonIntoTrapezoids(sector.getPolyLines()):
-                        face = list()
-                        for vert in trapezoid:
-                            z = sector.getHeightAtPos(vert.x, vert.y, level)
-                            objCrtr.verts.append(Vector((vert.x, vert.y*-1, z*-1)))
-                            objCrtr.vertUVs.append(self.calculateSectorUVCoords(sector, vert.x, vert.y, level))
-                            face.append(objCrtr.vertIdx)
+                if not sector.isTrorOmit(level):
+                    objCrtr = objCrtrMap
+                    if splitSky and sector.isParallaxing(level):
+                        objCrtr = objCrtrSky
+                    if tessellationValid:
+                        for faceIdxTriple in faceIndices:
+                            objCrtr.addFace([objCrtr.vertIdx+faceIdxTriple[0], objCrtr.vertIdx+faceIdxTriple[1], objCrtr.vertIdx+faceIdxTriple[2]], sector.getPicNum(level), flipped=(level is self.bmap.Level.CEILING))
+                            for faceIdx in faceIdxTriple:
+                                objCrtr.vertUVs.append(self.calculateSectorUVCoords(sector, sector.walls[faceIdx].xScal, sector.walls[faceIdx].yScal, level))
+                        for wall in sector.walls:
+                            objCrtr.verts.append(Vector((wall.xScal, wall.yScal*-1, sector.getHeightAtPos(wall.xScal, wall.yScal, level)*-1)))
                             objCrtr.vertIdx += 1
-                        objCrtr.addFace(face, sector.getPicNum(level), flipped=(level == self.bmap.Level.FLOOR))
+                    else:
+                        ## Fallback in case tessellate_polygon did not succeed - likely because of degenerate geometry
+                        for trapezoid in self.cutPolygonIntoTrapezoids(sector.getPolyLines()):
+                            face = list()
+                            for vert in trapezoid:
+                                z = sector.getHeightAtPos(vert.x, vert.y, level)
+                                objCrtr.verts.append(Vector((vert.x, vert.y*-1, z*-1)))
+                                objCrtr.vertUVs.append(self.calculateSectorUVCoords(sector, vert.x, vert.y, level))
+                                face.append(objCrtr.vertIdx)
+                                objCrtr.vertIdx += 1
+                            objCrtr.addFace(face, sector.getPicNum(level), flipped=(level == self.bmap.Level.FLOOR))
 
             for wall in sector.walls:
                 objCrtrWall = objCrtrMap
