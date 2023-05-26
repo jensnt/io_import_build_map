@@ -21,7 +21,7 @@
 bl_info = {
     "name": "Import BUILD Map format",
     "author": "Jens Neitzel",
-    "version": (1, 1, 0),
+    "version": (1, 1, 1),
     "blender": (2, 93, 0),
     "location": "File > Import > BUILD Map (.map)",
     "description": "Import geometry and materials from a BUILD Map file.",
@@ -210,6 +210,9 @@ class ImportBuildMap(bpy.types.Operator, ImportHelper):
             log.error("Parsing file failed!")
             self.report({'ERROR'}, 'Parsing file failed!')
         else:
+            if bmap.data.mapversion == 9:
+                log.warning("BUILD Map Version 9 TROR is not yet fully supported. The imported map might have errors.")
+                self.report({'WARNING'}, "BUILD Map Version 9 TROR is not yet fully supported. The imported map might have errors.")
             mapCollection = bpy.data.collections.new(os.path.basename(self.filepath))
             context.collection.children.link(mapCollection)
             matManager = buildmap_materialmanager.materialManager(self.textureFolder, self.userArtTextureFolder, self.reuseExistingMaterials, self.sampleClosestTexel, self.proceduralMaterialEffects, self.useBackfaceCulling)
