@@ -205,7 +205,7 @@ class BuildMap:
     def getWallListString(self, wall_list):
         return "; ".join([wall.getName() for wall in wall_list])
     
-    def find_wall_neighbors(self):
+    def find_wall_neighbors(self):  ## TODO I think neighbors are wrongly detected with TROR! This needs to be sorted out FIRST before thinking of any other ideas how to fix Walls with TROR
         ## Find wall and sector neighbors of walls using Coordinates.
         ## This has in some cases shown more trustworthy results than relying on the walls nextwall and nextsector fields.
         ## This can be improved by taking z coordinates into account as a step to support TROR
@@ -271,12 +271,9 @@ class BuildMap:
             self.slopeAbs        = dict()
             self.slopeVector     = dict()  ## slope values (float 1 = 45 degrees)
             self.corrupted       = False
-            
-            self.zScal[self.bmap.Level.FLOOR.name]   = float(self.data.floorz) / 8192     ## TODO DEPRECATED
-            self.zScal[self.bmap.Level.CEILING.name] = float(self.data.ceilingz) / 8192   ## TODO DEPRECATED
             self.level: List[BuildSector.SectLevel] = list()
             
-            for lvl in self.bmap.Level:
+            for lvl in self.bmap.Level:  ## TODO Refactor this, too
                 self.slopeAbs[lvl.name] = 0.0
                 self.slopeVector[lvl.name]  = Vector((0.0, 0.0))
             if self.data.floorstat & 2 != 0:
@@ -287,62 +284,6 @@ class BuildMap:
             for lvl in self.bmap.Level:
                 self.level.append(self.SectLevel(self, lvl))
         
-        def getPicNum(self, level):   ## TODO DEPRECATED
-            if level is self.bmap.Level.FLOOR:
-                return self.data.floorpicnum
-            else:
-                return self.data.ceilingpicnum
-        
-        def getTexPanning(self, level):   ## TODO DEPRECATED
-            if level is self.bmap.Level.FLOOR:
-                return float(self.data.floorxpanning) / 256, float(self.data.floorypanning) / 256 * -1
-            else:
-                return float(self.data.ceilingxpanning) / 256, float(self.data.ceilingypanning) / 256 * -1
-        
-        def getTexSwapXY(self, level):   ## TODO DEPRECATED
-            ## mapster32: F flip texture
-            if level is self.bmap.Level.FLOOR:
-                return bool(self.data.floorstat & 0x4)
-            else:
-                return bool(self.data.ceilingstat & 0x4)
-        
-        def getTexExpansion(self, level):   ## TODO DEPRECATED
-            ## mapster32: E toggle sector texture expansion
-            if level is self.bmap.Level.FLOOR:
-                return float(((self.data.floorstat>>3)&1)+1)
-            else:
-                return float(((self.data.ceilingstat>>3)&1)+1)
-        
-        def getTexFlipX(self, level):   ## TODO DEPRECATED
-            ## mapster32: F flip texture
-            if level is self.bmap.Level.FLOOR:
-                return bool(self.data.floorstat & 0x10)
-            else:
-                return bool(self.data.ceilingstat & 0x10)
-        
-        def getTexFlipY(self, level):   ## TODO DEPRECATED
-            ## mapster32: F flip texture
-            if level is self.bmap.Level.FLOOR:
-                return bool(self.data.floorstat & 0x20)
-            else:
-                return bool(self.data.ceilingstat & 0x20)
-        
-        def isTexAlignToFirstWall(self, level):   ## TODO DEPRECATED
-            ## mapster32: R toggle sector texture relativity alignment
-            if level is self.bmap.Level.FLOOR:
-                return bool(self.data.floorstat & 0x40)
-            else:
-                return bool(self.data.ceilingstat & 0x40)
-        
-        def getTexFlipXFactor(self, level):   ## TODO DEPRECATED
-            if self.getTexSwapXY(level) == self.getTexFlipX(level):
-                return 1
-            else:
-                return -1
-        
-        def getTexFlipYFactor(self, level):   ## TODO DEPRECATED
-            return 1 if self.getTexSwapXY(level) == self.getTexFlipY(level) else -1
-        
         def getPolyLines(self):
             polylines = list()
             for wallLoop in self.wallLoops:
@@ -352,35 +293,14 @@ class BuildMap:
                 polylines.append(polyline)
             return polylines
         
-        def getHeightAtPos(self, xPos, yPos, level, respectEffectors=False):  ## TODO respectEffectors is experimental for now      ## TODO DEPRECATED
-            slopeX = self.slopeVector[level.name].x
-            slopeY = self.slopeVector[level.name].y
-            zScal = self.zScal[level.name]
-            zC9Sprite = None
-            if respectEffectors:
-                for sprite in self.sprites:
-                    if sprite.data.lotag == 13:  ## C-9 Explosive Sprite
-                        zC9Sprite = sprite.zScal
-                        break
-            if (zC9Sprite is not None) and (level == self.bmap.Level.FLOOR):
-                zScal = zC9Sprite
-            return (self.walls[0].xScal - xPos)*slopeX + (self.walls[0].yScal - yPos)*slopeY + zScal
+        def getLevel(self, ommitTror=True):
+            return [lvl for lvl in self.level if not ommitTror or not lvl.isTrorOmit()]
         
-        def isParallaxing(self, level):   ## TODO DEPRECATED
-            ## mapster32: P toggle parallax
-            if level is self.bmap.Level.FLOOR:
-                return bool(self.data.floorstat & 0x1)
-            else:
-                return bool(self.data.ceilingstat & 0x1)
+        def getFloor(self):
+            return self.level[0]
         
-        def isTrorOmit(self, level):  ## Experimental      ## TODO DEPRECATED
-            if self.bmap.data.mapversion == 9:
-                if level is self.bmap.Level.FLOOR:
-                    return bool(self.data.floorstat & 0x400) and ((self.data.floorstat & 0x80) == 0)
-                else:
-                    return bool(self.data.ceilingstat & 0x400) and ((self.data.ceilingstat & 0x80) == 0)
-            else:
-                return False
+        def getCeiling(self):
+            return self.level[1]
         
         def getName(self, sky=False, prefix=""):
             if sky:
@@ -403,17 +323,35 @@ class BuildMap:
                     self.zScal = float(self.sector.data.ceilingz) / 8192
                     self.cstat = self.sector.data.ceilingstat
 
+            def isFloor(self):
+                return self.type is self.bmap.Level.FLOOR
+
+            def isCeiling(self):
+                return self.type is self.bmap.Level.CEILING
+
             def getPicNum(self):
-                if self.type is self.bmap.Level.FLOOR:
-                    return self.sector.data.floorpicnum
-                else:
-                    return self.sector.data.ceilingpicnum
+                return self.sector.data.floorpicnum if self.isFloor() else self.sector.data.ceilingpicnum
+            
+            def getZ(self):
+                return self.sector.data.floorz if self.isFloor() else self.sector.data.ceilingz
+
+            def getHeiNum(self):
+                return self.sector.data.floorheinum if self.isFloor() else self.sector.data.ceilingheinum
+
+            def getShade(self):
+                return self.sector.data.floorshade if self.isFloor() else self.sector.data.ceilingshade
+
+            def getPal(self):
+                return self.sector.data.floorpal if self.isFloor() else self.sector.data.ceilingpal
+
+            def getXPanning(self):
+                return self.sector.data.floorxpanning if self.isFloor() else self.sector.data.ceilingxpanning
+
+            def getYPanning(self):
+                return self.sector.data.floorypanning if self.isFloor() else self.sector.data.ceilingypanning
             
             def getTexPanning(self):
-                if self.type is self.bmap.Level.FLOOR:
-                    return float(self.sector.data.floorxpanning) / 256, float(self.sector.data.floorypanning) / 256 * -1
-                else:
-                    return float(self.sector.data.ceilingxpanning) / 256, float(self.sector.data.ceilingypanning) / 256 * -1
+                return float(self.getXPanning()) / 256, float(self.getYPanning()) / 256 * -1
             
             def getTexSwapXY(self): ## mapster32: F flip texture
                 return bool(self.cstat & 0x4)
@@ -459,9 +397,9 @@ class BuildMap:
             def getName(self, sky=False, prefix=""):
                 lvlName = "Floor" if self.type == self.bmap.Level.FLOOR else "Ceiling"
                 if sky:
-                    return "%sSector_%03d_%s_Sky" % (prefix, self.sectorIndex, lvlName)
+                    return "%sSector_%03d_%s_Sky" % (prefix, self.sector.sectorIndex, lvlName)
                 else:
-                    return "%sSector_%03d_%s" % (prefix, self.sectorIndex, lvlName)
+                    return "%sSector_%03d_%s" % (prefix, self.sector.sectorIndex, lvlName)
     
     class BuildWall:
         wallDataNames = namedtuple('SectorData', ['x', 'y', 'point2', 'nextwall', 'nextsector', 'cstat', 'picnum',
@@ -554,54 +492,47 @@ class BuildMap:
                 self.bmap         = self.wall.bmap
                 self.vertices     = list()
                 self.wallType     = None
-                self.sectBot      = None
                 self.sectBotLevel = None
-                self.sectTop      = None
                 self.sectTopLevel = None
                 self.alignTexZ    = 0
                 self.neighborSector = neighborSector
                 self.zBottom      = None
                 
                 if not isRedTopWall:
-                    self.sectBot      = self.wall.sector
-                    self.sectBotLevel = self.bmap.Level.FLOOR
+                    self.sectBotLevel = self.wall.sector.getFloor()
                     if self.neighborSector is None:
                         ## Case 1 (simple white wall)
                         self.wallType      = self.bmap.WallType.WHITE
-                        self.sectTop       = self.wall.sector
-                        self.sectTopLevel  = self.bmap.Level.CEILING
+                        self.sectTopLevel  = self.wall.sector.getCeiling()
                         if self.wall.getTexAlignFlag():
-                            self.alignTexZ = self.wall.sector.zScal[self.bmap.Level.FLOOR.name]    ## Flags = 4: Aligned to floor of own sector
+                            self.alignTexZ = self.wall.sector.getFloor().zScal     ## Flags = 4: Aligned to floor of own sector
                         else:
-                            self.alignTexZ = self.wall.sector.zScal[self.bmap.Level.CEILING.name]  ## Flags = 0: Aligned to ceiling of own sector
+                            self.alignTexZ = self.wall.sector.getCeiling().zScal   ## Flags = 0: Aligned to ceiling of own sector
                     else:
                         ## Case 2 (bottom portion of red wall)
                         self.wallType      = self.bmap.WallType.REDBOT
-                        self.sectTop       = self.neighborSector
-                        self.sectTopLevel  = self.bmap.Level.FLOOR
+                        self.sectTopLevel  = self.neighborSector.getFloor()
                         if self.wall.getTexAlignFlag():
-                            self.alignTexZ = self.wall.sector.zScal[self.bmap.Level.CEILING.name]   ## Flags = 4: Aligned to ceiling of own sector
+                            self.alignTexZ = self.wall.sector.getCeiling().zScal   ## Flags = 4: Aligned to ceiling of own sector
                         else:
-                            self.alignTexZ = self.neighborSector.zScal[self.bmap.Level.FLOOR.name]  ## Flags = 0: Aligned to floor of neighbor sector (upper edge of lower wall portion)
+                            self.alignTexZ = self.neighborSector.getFloor().zScal  ## Flags = 0: Aligned to floor of neighbor sector (upper edge of lower wall portion)
                 else:
                     ## Case 3 (top portion of red wall)
                     self.wallType      = self.bmap.WallType.REDTOP
-                    self.sectBot       = self.neighborSector
-                    self.sectBotLevel  = self.bmap.Level.CEILING
-                    self.sectTop       = self.wall.sector
-                    self.sectTopLevel  = self.bmap.Level.CEILING
+                    self.sectBotLevel  = self.neighborSector.getCeiling()
+                    self.sectTopLevel  = self.wall.sector.getCeiling()
                     if self.wall.getTexAlignFlag():
-                        self.alignTexZ = self.wall.sector.zScal[self.bmap.Level.CEILING.name]     ## Flags = 4: Aligned to ceiling of own sector
+                        self.alignTexZ = self.wall.sector.getCeiling().zScal       ## Flags = 4: Aligned to ceiling of own sector
                     else:
-                        self.alignTexZ = self.neighborSector.zScal[self.bmap.Level.CEILING.name]  ## Flags = 0: Aligned to ceiling of neighbor sector (lower edge of upper wall portion)
+                        self.alignTexZ = self.neighborSector.getCeiling().zScal    ## Flags = 0: Aligned to ceiling of neighbor sector (lower edge of upper wall portion)
                 
-                self.zBottom = self.sectBot.zScal[self.sectBotLevel.name]
+                self.zBottom = self.sectBotLevel.zScal
                 nextWall = self.wall.getPoint2Wall()
                 if nextWall is not None:
-                    self.vertices.append(Vector(( self.wall.xScal, self.wall.yScal, self.sectBot.getHeightAtPos(self.wall.xScal, self.wall.yScal, self.sectBotLevel) )))
-                    self.vertices.append(Vector((  nextWall.xScal,  nextWall.yScal, self.sectBot.getHeightAtPos( nextWall.xScal,  nextWall.yScal, self.sectBotLevel) )))
-                    self.vertices.append(Vector((  nextWall.xScal,  nextWall.yScal, self.sectTop.getHeightAtPos( nextWall.xScal,  nextWall.yScal, self.sectTopLevel) )))
-                    self.vertices.append(Vector(( self.wall.xScal, self.wall.yScal, self.sectTop.getHeightAtPos(self.wall.xScal, self.wall.yScal, self.sectTopLevel) )))
+                    self.vertices.append(Vector(( self.wall.xScal, self.wall.yScal, self.sectBotLevel.getHeightAtPos(self.wall.xScal, self.wall.yScal) )))
+                    self.vertices.append(Vector((  nextWall.xScal,  nextWall.yScal, self.sectBotLevel.getHeightAtPos( nextWall.xScal,  nextWall.yScal) )))
+                    self.vertices.append(Vector((  nextWall.xScal,  nextWall.yScal, self.sectTopLevel.getHeightAtPos( nextWall.xScal,  nextWall.yScal) )))
+                    self.vertices.append(Vector(( self.wall.xScal, self.wall.yScal, self.sectTopLevel.getHeightAtPos(self.wall.xScal, self.wall.yScal) )))
             
             def getClippedVertices(self):
                 cverts = list()
@@ -634,12 +565,11 @@ class BuildMap:
             
             def isSky(self):
                 if self.wallType == self.bmap.WallType.REDBOT:
-                    checkLevel = self.bmap.Level.FLOOR
+                    return self.wall.sector.getFloor().isParallaxing() and self.neighborSector.getFloor().isParallaxing()
                 elif self.wallType == self.bmap.WallType.REDTOP:
-                    checkLevel = self.bmap.Level.CEILING
+                    return self.wall.sector.getCeiling().isParallaxing() and self.neighborSector.getCeiling().isParallaxing()
                 else:
                     return False
-                return self.wall.sector.isParallaxing(level=checkLevel) and self.neighborSector.isParallaxing(level=checkLevel)
             
             def getPicNum(self):
                 ## Get picnum, taking swapped textures for bottom walls into account
