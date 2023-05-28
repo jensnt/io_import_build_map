@@ -41,7 +41,7 @@ class BuildMapImporter:
         self.wm            = self.context.window_manager
     
     def saveMapCustomProps(self, obj):
-        if (self.bmap != None) and (obj != None):
+        if (self.bmap is not None) and (obj is not None):
             obj["mapversion"] = self.bmap.data.mapversion
             obj["posx"]       = self.bmap.data.posx
             obj["posy"]       = self.bmap.data.posy
@@ -52,55 +52,35 @@ class BuildMapImporter:
             obj["numwalls"]   = self.bmap.data.numwalls
             obj["numsprites"] = self.bmap.data.numsprites
     
-    def saveSectorCustomProps(self, sector, obj):
-        if (sector != None) and (obj != None):
-            obj["wallptr"]         = sector.data.wallptr
-            obj["wallnum"]         = sector.data.wallnum
-            obj["ceilingz"]        = sector.data.ceilingz
-            obj["floorz"]          = sector.data.floorz
-            obj["ceilingstat bit00 parallaxing"] = (sector.data.ceilingstat>>0)&1
-            obj["ceilingstat bit01 sloped"]      = (sector.data.ceilingstat>>1)&1
-            obj["ceilingstat bit02 swap-xy"]     = (sector.data.ceilingstat>>2)&1
-            obj["ceilingstat bit03 smoothness"]  = (sector.data.ceilingstat>>3)&1
-            obj["ceilingstat bit04 x-flip"]      = (sector.data.ceilingstat>>4)&1
-            obj["ceilingstat bit05 y-flip"]      = (sector.data.ceilingstat>>5)&1
-            obj["ceilingstat bit06 align"]       = (sector.data.ceilingstat>>6)&1
-            obj["ceilingstat bit07 masked"]      = (sector.data.ceilingstat>>7)&1
-            obj["ceilingstat bit08 trans"]       = (sector.data.ceilingstat>>8)&1
-            obj["ceilingstat bit09 TROR movblk"] = (sector.data.ceilingstat>>9)&1
-            obj["ceilingstat bit10 TROR"]        = (sector.data.ceilingstat>>10)&1
-            obj["ceilingstat bit11 TROR prjblk"] = (sector.data.ceilingstat>>11)&1
-            obj["ceilingstat bit12-15 reserved"] = "0b%s" % format(((sector.data.ceilingstat>>12)&15),'b').zfill(4)
-            obj["floorstat bit00 parallaxing"]   = (sector.data.floorstat>>0)&1
-            obj["floorstat bit01 sloped"]        = (sector.data.floorstat>>1)&1
-            obj["floorstat bit02 swap-xy"]       = (sector.data.floorstat>>2)&1
-            obj["floorstat bit03 smoothness"]    = (sector.data.floorstat>>3)&1
-            obj["floorstat bit04 x-flip"]        = (sector.data.floorstat>>4)&1
-            obj["floorstat bit05 y-flip"]        = (sector.data.floorstat>>5)&1
-            obj["floorstat bit06 align"]         = (sector.data.floorstat>>6)&1
-            obj["floorstat bit07 masked"]        = (sector.data.floorstat>>7)&1
-            obj["floorstat bit08 trans"]         = (sector.data.floorstat>>8)&1
-            obj["floorstat bit09 TROR movblk"]   = (sector.data.floorstat>>9)&1
-            obj["floorstat bit10 TROR"]          = (sector.data.floorstat>>10)&1
-            obj["floorstat bit11 TROR prjblk"]   = (sector.data.floorstat>>11)&1
-            obj["floorstat bit12-15 reserved"]   = "0b%s" % format(((sector.data.floorstat>>12)&15),'b').zfill(4)
-            obj["ceilingpicnum"]   = sector.data.ceilingpicnum
-            obj["ceilingheinum"]   = sector.data.ceilingheinum
-            obj["ceilingshade"]    = sector.data.ceilingshade
-            obj["ceilingpal"]      = sector.data.ceilingpal
-            obj["ceilingxpanning"] = sector.data.ceilingxpanning
-            obj["ceilingypanning"] = sector.data.ceilingypanning
-            obj["floorpicnum"]     = sector.data.floorpicnum
-            obj["floorheinum"]     = sector.data.floorheinum
-            obj["floorshade"]      = sector.data.floorshade
-            obj["floorpal"]        = sector.data.floorpal
-            obj["floorxpanning"]   = sector.data.floorxpanning
-            obj["floorypanning"]   = sector.data.floorypanning
-            obj["visibility"]      = sector.data.visibility
-            obj["filler"]          = sector.data.filler
-            obj["lotag"]           = sector.data.lotag
-            obj["hitag"]           = sector.data.hitag
-            obj["extra"]           = sector.data.extra
+    def saveLevelCustomProps(self, level, obj):
+        if (level is not None) and (obj is not None):
+            obj["wallptr"]                 = level.sector.data.wallptr
+            obj["wallnum"]                 = level.sector.data.wallnum
+            obj["z"]                       = level.getZ()
+            obj["cstat bit00 parallaxing"] = (level.cstat>>0)&1
+            obj["cstat bit01 sloped"]      = (level.cstat>>1)&1
+            obj["cstat bit02 swap-xy"]     = (level.cstat>>2)&1
+            obj["cstat bit03 smoothness"]  = (level.cstat>>3)&1
+            obj["cstat bit04 x-flip"]      = (level.cstat>>4)&1
+            obj["cstat bit05 y-flip"]      = (level.cstat>>5)&1
+            obj["cstat bit06 align"]       = (level.cstat>>6)&1
+            obj["cstat bit07 masked"]      = (level.cstat>>7)&1
+            obj["cstat bit08 trans"]       = (level.cstat>>8)&1
+            obj["cstat bit09 TROR movblk"] = (level.cstat>>9)&1
+            obj["cstat bit10 TROR"]        = (level.cstat>>10)&1
+            obj["cstat bit11 TROR prjblk"] = (level.cstat>>11)&1
+            obj["cstat bit12-15 reserved"] = "0b%s" % format(((level.cstat>>12)&15),'b').zfill(4)
+            obj["picnum"]                  = level.getPicNum()
+            obj["heinum"]                  = level.getHeiNum()
+            obj["shade"]                   = level.getShade()
+            obj["pal"]                     = level.getPal()
+            obj["xpanning"]                = level.getXPanning()
+            obj["ypanning"]                = level.getYPanning()
+            obj["visibility"]              = level.sector.data.visibility
+            obj["filler"]                  = level.sector.data.filler
+            obj["lotag"]                   = level.sector.data.lotag
+            obj["hitag"]                   = level.sector.data.hitag
+            obj["extra"]                   = level.sector.data.extra
     
     def saveWallCustomProps(self, wall, obj):
         if (wall is not None) and (obj is not None):
@@ -307,34 +287,34 @@ class BuildMapImporter:
     
     
     
-    def calculateSectorUVCoords(self, sector, xCoord, yCoord, level):
-        picDimX,picDimY = self.matManager.getDimensions(sector.getPicNum(level))
-        panX,panY       = sector.getTexPanning(level)
-        expFactor       = sector.getTexExpansion(level)
+    def calculateSectorUVCoords(self, level, xCoord, yCoord):
+        picDimX,picDimY = self.matManager.getDimensions(level.getPicNum())
+        panX,panY       = level.getTexPanning()
+        expFactor       = level.getTexExpansion()
         uvXFactor       = float(32)/picDimX * expFactor
         uvYFactor       = float(32)/picDimY * expFactor
-        flipXFactor     = sector.getTexFlipXFactor(level)
-        flipYFactor     = sector.getTexFlipYFactor(level)
+        flipXFactor     = level.getTexFlipXFactor()
+        flipYFactor     = level.getTexFlipYFactor()
         
-        if sector.isTexAlignToFirstWall(level):
+        if level.isTexAlignToFirstWall():
             ## convert xCoord and yCoord to a coordinate system centered on and aligned with the first sector wall
-            vertexVectorAligned = Vector((xCoord, yCoord*-1)) - sector.walls[0].startVect
-            vertexVectorAligned.rotate(mathutils.Matrix.Rotation(sector.walls[0].angle, 2))
+            vertexVectorAligned = Vector((xCoord, yCoord*-1)) - level.sector.walls[0].startVect
+            vertexVectorAligned.rotate(mathutils.Matrix.Rotation(level.sector.walls[0].angle, 2))
             
             ## Correct Y Dimension for Alligned Case
-            zDiff = sector.zScal[level.name]*-1 - sector.getHeightAtPos(xCoord, yCoord, level)*-1
+            zDiff = level.zScal*-1 - level.getHeightAtPos(xCoord, yCoord)*-1
             vertexVectorAligned_y = float(math.sqrt(zDiff * zDiff + vertexVectorAligned.y * vertexVectorAligned.y))
             if vertexVectorAligned.y < 0:
                 vertexVectorAligned_y *= -1  ## Restore Sign
             
-            if sector.getTexSwapXY(level):
+            if level.getTexSwapXY():
                 uvx = vertexVectorAligned_y*flipXFactor*uvXFactor+panX
                 uvy = vertexVectorAligned.x*flipYFactor*uvYFactor+panY
             else:
                 uvx = vertexVectorAligned.x*flipXFactor*uvXFactor+panX
                 uvy = vertexVectorAligned_y*flipYFactor*uvYFactor+panY
         else:
-            if sector.getTexSwapXY(level):
+            if level.getTexSwapXY():
                 uvx = yCoord*flipXFactor*uvXFactor+panX
                 uvy = xCoord*flipYFactor*uvYFactor+panY
             else:
@@ -419,9 +399,6 @@ class BuildMapImporter:
         
         for sector in self.bmap.getSectors():
             self.wm.progress_update(sector.sectorIndex / self.bmap.data.numsectors)
-            if splitSectors:
-                objCrtrMap = self.meshObjectCreator(self.matManager, name=sector.getName(sky=False, prefix=self.objectPrefix))
-                objCrtrSky = self.meshObjectCreator(self.matManager, name=sector.getName(sky=True,  prefix=self.objectPrefix))
             
             ## Try to get polygon partitions from blenders tessellate_polygon method
             ## This can fail on degenerate geometry
@@ -432,30 +409,36 @@ class BuildMapImporter:
                 log.warning("tessellate_polygon result invalid for sector %s likely because of degenerate geometry! Using Fallback." % sector.sectorIndex)
                 log.debug("tessellate_polygon result invalid for sector %s: sector.data.wallnum %s  !=  len(faceIndicesCovered) %s  faceIndicesCovered: %s" % (sector.sectorIndex, sector.data.wallnum, len(faceIndicesCovered), faceIndicesCovered))
 
-            for level in self.bmap.Level:
-                if not sector.isTrorOmit(level):
-                    objCrtr = objCrtrMap
-                    if splitSky and sector.isParallaxing(level):
-                        objCrtr = objCrtrSky
-                    if tessellationValid:
-                        for faceIdxTriple in faceIndices:
-                            objCrtr.addFace([objCrtr.vertIdx+faceIdxTriple[0], objCrtr.vertIdx+faceIdxTriple[1], objCrtr.vertIdx+faceIdxTriple[2]], sector.getPicNum(level), flipped=(level is self.bmap.Level.CEILING))
-                            for faceIdx in faceIdxTriple:
-                                objCrtr.vertUVs.append(self.calculateSectorUVCoords(sector, sector.walls[faceIdx].xScal, sector.walls[faceIdx].yScal, level))
-                        for wall in sector.walls:
-                            objCrtr.verts.append(Vector((wall.xScal, wall.yScal*-1, sector.getHeightAtPos(wall.xScal, wall.yScal, level)*-1)))
-                            objCrtr.vertIdx += 1
-                    else:
-                        ## Fallback in case tessellate_polygon did not succeed - likely because of degenerate geometry
-                        for trapezoid in self.cutPolygonIntoTrapezoids(sector.getPolyLines()):
-                            face = list()
-                            for vert in trapezoid:
-                                z = sector.getHeightAtPos(vert.x, vert.y, level)
-                                objCrtr.verts.append(Vector((vert.x, vert.y*-1, z*-1)))
-                                objCrtr.vertUVs.append(self.calculateSectorUVCoords(sector, vert.x, vert.y, level))
-                                face.append(objCrtr.vertIdx)
-                                objCrtr.vertIdx += 1
-                            objCrtr.addFace(face, sector.getPicNum(level), flipped=(level == self.bmap.Level.FLOOR))
+            for level in sector.getLevel():
+                levelSplitSky = splitSky and level.isParallaxing()
+                if splitSectors:
+                    objCrtrLvl = self.meshObjectCreator(self.matManager, name=level.getName(sky=levelSplitSky, prefix=self.objectPrefix))
+                else:
+                    objCrtrLvl = objCrtrSky if levelSplitSky else objCrtrMap
+                
+                if tessellationValid:
+                    for faceIdxTriple in faceIndices:
+                        objCrtrLvl.addFace([objCrtrLvl.vertIdx+faceIdxTriple[0], objCrtrLvl.vertIdx+faceIdxTriple[1], objCrtrLvl.vertIdx+faceIdxTriple[2]], level.getPicNum(), flipped=level.isCeiling())
+                        for faceIdx in faceIdxTriple:
+                            objCrtrLvl.vertUVs.append(self.calculateSectorUVCoords(level, sector.walls[faceIdx].xScal, sector.walls[faceIdx].yScal))
+                    for wall in sector.walls:
+                        objCrtrLvl.verts.append(Vector((wall.xScal, wall.yScal*-1, level.getHeightAtPos(wall.xScal, wall.yScal)*-1)))
+                        objCrtrLvl.vertIdx += 1
+                else:
+                    ## Fallback in case tessellate_polygon did not succeed - likely because of degenerate geometry
+                    for trapezoid in self.cutPolygonIntoTrapezoids(sector.getPolyLines()):
+                        face = list()
+                        for vert in trapezoid:
+                            z = level.getHeightAtPos(vert.x, vert.y)
+                            objCrtrLvl.verts.append(Vector((vert.x, vert.y*-1, z*-1)))
+                            objCrtrLvl.vertUVs.append(self.calculateSectorUVCoords(level, vert.x, vert.y))
+                            face.append(objCrtrLvl.vertIdx)
+                            objCrtrLvl.vertIdx += 1
+                        objCrtrLvl.addFace(face, level.getPicNum(), flipped=level.isFloor())
+                
+                if splitSectors:
+                    objCrtrLvl.create(collectionSkyGeo if levelSplitSky else collectionMapGeo)
+                    self.saveLevelCustomProps(level, objCrtrLvl.obj)
 
             for wall in sector.walls:
                 objCrtrWall = objCrtrMap
@@ -473,23 +456,12 @@ class BuildMapImporter:
                     if len(face) > 0:
                         objCrtrWall.addFace(face, wPart.getPicNum())
                     if splitThisWall:
-                        if splitToSky:
-                            objCrtrWall.create(collectionSkyGeo)
-                        else:
-                            objCrtrWall.create(collectionWalls)
+                        objCrtrWall.create(collectionSkyGeo if splitToSky else collectionWalls)
                         self.saveWallCustomProps(wall, objCrtrWall.obj)
-            
-            if splitSectors:
-                objCrtrMap.create(collectionMapGeo)
-                self.saveSectorCustomProps(sector, objCrtrMap.obj)
-                if splitSky:
-                    objCrtrSky.create(collectionSkyGeo)
-                    self.saveSectorCustomProps(sector, objCrtrSky.obj)
         
-        if not splitSectors:
-            objCrtrMap.create(collectionMapGeo)
-            if splitSky:
-                objCrtrSky.create(collectionSkyGeo)
+        objCrtrMap.create(collectionMapGeo)
+        if splitSky:
+            objCrtrSky.create(collectionSkyGeo)
 
     class meshObjectCreator:
         def __init__(self, matManager, name="NewObject"):
