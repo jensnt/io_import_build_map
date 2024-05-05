@@ -155,17 +155,17 @@ class ImportBuildMap(bpy.types.Operator, ImportHelper):
         name="Reuse Materials",
         description = ("Reuse existing materials"),
         default = True)
-    sampleClosestTexel : bpy.props.BoolProperty(
-        name="Pixel Shading",
-        description = ("Sample closest texel on textures instead of interpolating"),
-        default = True)
     shadeToVertexColors : bpy.props.BoolProperty(
         name="Shade to Vertex Colors",
         description = ("Save Ceiling, Floor, Wall and Sprite Shade values as Vertex Color Attributes and use those in created Materials"),
         default = True)
+    sampleClosestTexel : bpy.props.BoolProperty(
+        name="Pixel Shading",
+        description = ("Sample closest texel on textures instead of interpolating"),
+        default = True)
     proceduralMaterialEffects : bpy.props.BoolProperty(
         name="Procedural Material Effects",
-        description = ("Adding nodes in created materials to achieve a more realistic appearance"),
+        description = ("Adding nodes in created materials, adding procedural details"),
         default = False)
     useBackfaceCulling : bpy.props.BoolProperty(
         name="Use Back Face Culling",

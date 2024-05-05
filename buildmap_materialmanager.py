@@ -33,6 +33,7 @@ log = logging.getLogger(__name__)
 class materialManager:
     def __init__(self, texFolder, userArtTexFolder, reuseExistingMaterials=True, sampleClosestTexel=True, shadeToVertexColors=True, proceduralMaterialEffects=False, useBackfaceCulling=False):
         log.debug("materialManager init with texFolder: %s  userArtTexFolder: %s  sampleClosestTexel: %s  shadeToVertexColors: %s" % (texFolder, userArtTexFolder, sampleClosestTexel, shadeToVertexColors))
+        self.blversion = bpy.app.version
         self.textureFolder = None
         self.userArtTextureFolder = None
         self.texFileMap = None
@@ -199,11 +200,19 @@ class materialManager:
             nodeBump2 = newMat.node_tree.nodes.new(type='ShaderNodeBump')
             nodeBump2.inputs["Strength"].default_value = 0.1
             
-            nodeMusgrave = newMat.node_tree.nodes.new(type='ShaderNodeTexMusgrave')
-            nodeMusgrave.inputs["Scale"].default_value = 0.5
-            nodeMusgrave.inputs["Detail"].default_value = 15
-            nodeMusgrave.inputs["Dimension"].default_value = 1
-            nodeMusgrave.inputs["Lacunarity"].default_value = 3
+            if self.blversion[0] < 4 or (self.blversion[0] == 4 and self.blversion[1] < 1):  ## Blender Versions older than 4.1 had a dedicated Musgrave Node
+                nodeMusgrave = newMat.node_tree.nodes.new(type='ShaderNodeTexMusgrave')
+                nodeMusgrave.inputs["Scale"].default_value = 0.5
+                nodeMusgrave.inputs["Detail"].default_value = 15
+                nodeMusgrave.inputs["Dimension"].default_value = 1
+                nodeMusgrave.inputs["Lacunarity"].default_value = 3
+            else:
+                nodeMusgrave = newMat.node_tree.nodes.new(type='ShaderNodeTexNoise')
+                nodeMusgrave.normalize = False
+                nodeMusgrave.inputs["Scale"].default_value = 0.5
+                nodeMusgrave.inputs["Detail"].default_value = 14
+                nodeMusgrave.inputs["Roughness"].default_value = 0.333333
+                nodeMusgrave.inputs["Lacunarity"].default_value = 3
             
             nodeTexCoord = newMat.node_tree.nodes.new(type='ShaderNodeTexCoord')
             
@@ -230,7 +239,10 @@ class materialManager:
             newMat.node_tree.links.new(nodeTexCoord.outputs["Object"], nodeMusgrave.inputs["Vector"])
             
             newMat.node_tree.links.new(nodeAO.outputs["Color"], nodeMix.inputs["Color2"])
-            newMat.node_tree.links.new(nodeImg.outputs["Color"], nodeMix.inputs["Color1"])
+            if self.shadeToVertexColors:
+                newMat.node_tree.links.new(nodeAttrMix.outputs["Color"], nodeMix.inputs["Color1"])
+            else:
+                newMat.node_tree.links.new(nodeImg.outputs["Color"], nodeMix.inputs["Color1"])
             newMat.node_tree.links.new(nodeMix.outputs["Color"], nodePbr.inputs["Base Color"])
         
         if imgFilePath is not None:
