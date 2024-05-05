@@ -209,7 +209,7 @@ class BuildMapImporter:
         self.saveMapCustomProps(obj)
     
     
-    def addSprites(self, wallSpriteOffset, scaleSpritesLikeInGame=True):
+    def addSprites(self, wallSpriteOffset, scaleSpritesLikeInGame=True, shadeToVertexColors=True):
         spriteCollection = bpy.data.collections.new("%sSprites"%self.objectPrefix)
         self.mapCollection.children.link(spriteCollection)
         colFaceSprites = bpy.data.collections.new("%sFaceSprites"%self.objectPrefix)
@@ -238,7 +238,7 @@ class BuildMapImporter:
             
             spriteWithEqualData = spriteCache.get(sprite.getDataKey(), None)
             if spriteWithEqualData is None:
-                objCrtr = self.meshObjectCreator(self.matManager, name=sprite.getName(prefix=self.objectPrefix))
+                objCrtr = self.meshObjectCreator(self.matManager, name=sprite.getName(prefix=self.objectPrefix), shadeToVertexColors=shadeToVertexColors)
                 dims = self.matManager.getDimensions(sprite.data.picnum)
                 scale_x = dims[0] / 64
                 scale_y = dims[1] / 64
@@ -259,7 +259,7 @@ class BuildMapImporter:
                                      Vector((0, -1 * scale_x, 2 * scale_y)),
                                      Vector((0, -1 * scale_x, 0 * scale_y))]
                 
-                objCrtr.addFace([0, 1, 2, 3], sprite.data.picnum)
+                objCrtr.addFace([0, 1, 2, 3], sprite.data.picnum, sprite.getShadeColor())
                 flipX = int(sprite.isFlippedX())
                 flipY = int(sprite.isFlippedY())
                 objCrtr.vertUVs = [(1-flipX, flipY), (1-flipX, 1-flipY), (flipX, 1-flipY), (flipX, flipY)]
@@ -380,11 +380,14 @@ class BuildMapImporter:
                                          flipPlus    = 0,
                                          flipAtStart = False )
         
+        if wall.getTexRotate():  ## TODO This does not correctly rotate the textures but better that nothing. The correct way to do it is currently unknown.
+            return (uvy,uvx)
+        
         return (uvx,uvy)
     
     
     
-    def addMapGeometry(self, splitSectors, splitWalls, splitSky):
+    def addMapGeometry(self, splitSectors, splitWalls, splitSky, shadeToVertexColors=True):
         collectionMapGeo = bpy.data.collections.new("%sMap"%self.objectPrefix)
         self.mapCollection.children.link(collectionMapGeo)
         if splitSky:
@@ -394,8 +397,8 @@ class BuildMapImporter:
             collectionWalls = bpy.data.collections.new("%sWalls"%self.objectPrefix)
             self.mapCollection.children.link(collectionWalls)
         
-        objCrtrMap = self.meshObjectCreator(self.matManager, name="%sMapGeometry"%self.objectPrefix)
-        objCrtrSky = self.meshObjectCreator(self.matManager, name="%sMapGeometry_Sky"%self.objectPrefix)
+        objCrtrMap = self.meshObjectCreator(self.matManager, name="%sMapGeometry"%self.objectPrefix, shadeToVertexColors=shadeToVertexColors)
+        objCrtrSky = self.meshObjectCreator(self.matManager, name="%sMapGeometry_Sky"%self.objectPrefix, shadeToVertexColors=shadeToVertexColors)
         
         for sector in self.bmap.getSectors():
             self.wm.progress_update(sector.sectorIndex / self.bmap.data.numsectors)
@@ -412,13 +415,13 @@ class BuildMapImporter:
             for level in sector.getLevel():
                 levelSplitSky = splitSky and level.isParallaxing()
                 if splitSectors:
-                    objCrtrLvl = self.meshObjectCreator(self.matManager, name=level.getName(sky=levelSplitSky, prefix=self.objectPrefix))
+                    objCrtrLvl = self.meshObjectCreator(self.matManager, name=level.getName(sky=levelSplitSky, prefix=self.objectPrefix), shadeToVertexColors=shadeToVertexColors)
                 else:
                     objCrtrLvl = objCrtrSky if levelSplitSky else objCrtrMap
                 
                 if tessellationValid:
                     for faceIdxTriple in faceIndices:
-                        objCrtrLvl.addFace([objCrtrLvl.vertIdx+faceIdxTriple[0], objCrtrLvl.vertIdx+faceIdxTriple[1], objCrtrLvl.vertIdx+faceIdxTriple[2]], level.getPicNum(), flipped=level.isCeiling())
+                        objCrtrLvl.addFace([objCrtrLvl.vertIdx+faceIdxTriple[0], objCrtrLvl.vertIdx+faceIdxTriple[1], objCrtrLvl.vertIdx+faceIdxTriple[2]], level.getPicNum(), level.getShadeColor(), flipped=level.isCeiling())
                         for faceIdx in faceIdxTriple:
                             objCrtrLvl.vertUVs.append(self.calculateSectorUVCoords(level, sector.walls[faceIdx].xScal, sector.walls[faceIdx].yScal))
                     for wall in sector.walls:
@@ -434,7 +437,7 @@ class BuildMapImporter:
                             objCrtrLvl.vertUVs.append(self.calculateSectorUVCoords(level, vert.x, vert.y))
                             face.append(objCrtrLvl.vertIdx)
                             objCrtrLvl.vertIdx += 1
-                        objCrtrLvl.addFace(face, level.getPicNum(), flipped=level.isFloor())
+                        objCrtrLvl.addFace(face, level.getPicNum(), level.getShadeColor(), flipped=level.isFloor())
                 
                 if splitSectors:
                     objCrtrLvl.create(collectionSkyGeo if levelSplitSky else collectionMapGeo)
@@ -446,7 +449,7 @@ class BuildMapImporter:
                     splitToSky = splitSky and wPart.isSky()
                     splitThisWall = splitWalls or splitToSky
                     if splitThisWall:
-                        objCrtrWall = self.meshObjectCreator(self.matManager, name=wPart.getName(prefix=self.objectPrefix))
+                        objCrtrWall = self.meshObjectCreator(self.matManager, name=wPart.getName(prefix=self.objectPrefix), shadeToVertexColors=shadeToVertexColors)
                     face = list()
                     for vert in wPart.getClippedVertices():
                         objCrtrWall.verts.append(Vector((vert.x, vert.y*-1, vert.z*-1)))
@@ -454,7 +457,7 @@ class BuildMapImporter:
                         face.append(objCrtrWall.vertIdx)
                         objCrtrWall.vertIdx += 1
                     if len(face) > 0:
-                        objCrtrWall.addFace(face, wPart.getPicNum())
+                        objCrtrWall.addFace(face, wPart.getPicNum(), wPart.getShadeColor())
                     if splitThisWall:
                         objCrtrWall.create(collectionSkyGeo if splitToSky else collectionWalls)
                         self.saveWallCustomProps(wall, objCrtrWall.obj)
@@ -464,7 +467,7 @@ class BuildMapImporter:
             objCrtrSky.create(collectionSkyGeo)
 
     class meshObjectCreator:
-        def __init__(self, matManager, name="NewObject"):
+        def __init__(self, matManager, name="NewObject", shadeToVertexColors=True):
             self.matManager = matManager
             self.name = name
             self.verts = list()
@@ -472,14 +475,18 @@ class BuildMapImporter:
             self.edges = list()
             self.faces = list()
             self.facePicnums = list()
+            self.faceShadeColors = list()
             self.faceIsFlipped = list()
             self.picnumMatIdxDict = dict()
             self.obj = None
+            self.vertColorLayer = None
+            self.shadeToVertexColors = shadeToVertexColors
             self.vertIdx = 0
         
-        def addFace(self, face, picnum=0, flipped=False):
+        def addFace(self, face, picnum=0, vertShadeColor=(1.0, 1.0, 1.0, 1.0), flipped=False):
             self.faces.append(face)
             self.facePicnums.append(picnum)
+            self.faceShadeColors.append(vertShadeColor)
             self.faceIsFlipped.append(flipped)
         
         def create(self, collection=None):
@@ -505,10 +512,16 @@ class BuildMapImporter:
             for idx, loop in enumerate(self.obj.data.loops):
                 newUVMap.data[idx].uv = self.vertUVs[idx]
 
-            ## Loop over the faces again to assign the materials and flip normals for correct face orientation
+            ## Loop over the faces again to assign the materials, vertex colors and flip normals for correct face orientation
+            if self.shadeToVertexColors:
+                self.vertColorLayer = self.obj.data.vertex_colors.new(name="Shade", do_init=False)
+                #self.vertColorLayer = self.obj.data.color_attributes.new(name="Shade", domain='CORNER', type='BYTE_COLOR')  ## This method results in lighter colors (gamma correction?)! e.g.: 0xd6d0d2 instead of 0xaba1a5
             for face in self.obj.data.polygons:
                 face.material_index = self.picnumMatIdxDict[self.facePicnums[face.index]]
                 if self.faceIsFlipped[face.index]:
                     face.flip()
+                if self.vertColorLayer is not None:
+                    for loop_idx in face.loop_indices:
+                        self.vertColorLayer.data[loop_idx].color = self.faceShadeColors[face.index]
 
             return self.obj

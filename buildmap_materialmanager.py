@@ -31,8 +31,8 @@ log = logging.getLogger(__name__)
 
 
 class materialManager:
-    def __init__(self, texFolder, userArtTexFolder, reuseExistingMaterials=True, sampleClosestTexel=True, proceduralMaterialEffects=False, useBackfaceCulling=False):
-        log.debug("materialManager init with texFolder: %s  userArtTexFolder: %s  sampleClosestTexel: %s" % (texFolder, userArtTexFolder, sampleClosestTexel))
+    def __init__(self, texFolder, userArtTexFolder, reuseExistingMaterials=True, sampleClosestTexel=True, shadeToVertexColors=True, proceduralMaterialEffects=False, useBackfaceCulling=False):
+        log.debug("materialManager init with texFolder: %s  userArtTexFolder: %s  sampleClosestTexel: %s  shadeToVertexColors: %s" % (texFolder, userArtTexFolder, sampleClosestTexel, shadeToVertexColors))
         self.textureFolder = None
         self.userArtTextureFolder = None
         self.texFileMap = None
@@ -43,6 +43,7 @@ class materialManager:
         self.existingMats = dict()
         self.reuseExistingMaterials = reuseExistingMaterials
         self.sampleClosestTexel = sampleClosestTexel
+        self.shadeToVertexColors = shadeToVertexColors
         self.proceduralMaterialEffects = proceduralMaterialEffects
         self.useBackfaceCulling = useBackfaceCulling
         
@@ -171,7 +172,22 @@ class materialManager:
         newMat.node_tree.links.new(nodeImg.outputs["Color"], nodePbr.inputs["Base Color"])
         newMat.node_tree.links.new(nodeImg.outputs["Alpha"], nodePbr.inputs["Alpha"])
         
-        ## Adding nodes to created materials to achieve a more realistic appearance.
+        ## Adding Color Attribute node for shade values
+        if self.shadeToVertexColors:
+            nodeAttribute = newMat.node_tree.nodes.new(type='ShaderNodeVertexColor')
+            nodeAttribute.layer_name = "Shade"
+            nodeAttribute.location = (-600, 925)
+            
+            nodeAttrMix = newMat.node_tree.nodes.new(type='ShaderNodeMixRGB')
+            nodeAttrMix.blend_type = 'MULTIPLY'
+            nodeAttrMix.inputs["Fac"].default_value = 1
+            nodeAttrMix.location = (-200, 925)
+                
+            newMat.node_tree.links.new(nodeAttribute.outputs["Color"], nodeAttrMix.inputs["Color2"])
+            newMat.node_tree.links.new(nodeImg.outputs["Color"], nodeAttrMix.inputs["Color1"])
+            newMat.node_tree.links.new(nodeAttrMix.outputs["Color"], nodePbr.inputs["Base Color"])
+        
+        ## Adding nodes for a more realistic appearance.
         if self.proceduralMaterialEffects:
             nodeBevel = newMat.node_tree.nodes.new(type='ShaderNodeBevel')
             nodeBevel.samples = 16

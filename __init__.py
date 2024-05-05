@@ -159,6 +159,10 @@ class ImportBuildMap(bpy.types.Operator, ImportHelper):
         name="Pixel Shading",
         description = ("Sample closest texel on textures instead of interpolating"),
         default = True)
+    shadeToVertexColors : bpy.props.BoolProperty(
+        name="Shade to Vertex Colors",
+        description = ("Save Ceiling, Floor, Wall and Sprite Shade values as Vertex Color Attributes and use those in created Materials"),
+        default = True)
     proceduralMaterialEffects : bpy.props.BoolProperty(
         name="Procedural Material Effects",
         description = ("Adding nodes in created materials to achieve a more realistic appearance"),
@@ -215,12 +219,12 @@ class ImportBuildMap(bpy.types.Operator, ImportHelper):
                 self.report({'WARNING'}, "BUILD Map Version 9 TROR is not yet fully supported. The imported map might have errors.")
             mapCollection = bpy.data.collections.new(os.path.basename(self.filepath))
             context.collection.children.link(mapCollection)
-            matManager = buildmap_materialmanager.materialManager(self.textureFolder, self.userArtTextureFolder, self.reuseExistingMaterials, self.sampleClosestTexel, self.proceduralMaterialEffects, self.useBackfaceCulling)
+            matManager = buildmap_materialmanager.materialManager(self.textureFolder, self.userArtTextureFolder, self.reuseExistingMaterials, self.sampleClosestTexel, self.shadeToVertexColors, self.proceduralMaterialEffects, self.useBackfaceCulling)
             prefix = f"{self.objectPrefix}_" if self.objectPrefix else ""
             importer = buildmap_importer.BuildMapImporter(bmap, matManager, context, mapCollection, prefix)
             importer.addSpawn()
-            importer.addSprites(self.wallSpriteOffset, self.scaleSpritesLikeInGame)
-            importer.addMapGeometry(self.splitSectors, self.splitWalls, self.splitSky)
+            importer.addSprites(self.wallSpriteOffset, self.scaleSpritesLikeInGame, self.shadeToVertexColors)
+            importer.addMapGeometry(self.splitSectors, self.splitWalls, self.splitSky, self.shadeToVertexColors)
             log.debug("Number of Materials: %s" % len(matManager.materialDict))
         
         wm.progress_end()
