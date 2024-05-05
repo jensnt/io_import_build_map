@@ -250,6 +250,17 @@ class BuildMap:
         if (not ignorable) or (not self.ignoreErrors):
             raise ValueError(errorMsg)
     
+    def calculateShadeColor(self, shade):
+        if shade <= 0:
+            return (1.0, 1.0, 1.0, 1.0)
+        elif shade >= 30:
+            return (0.0, 0.0, 0.0, 1.0)
+        else:
+            r = -(0.000432*shade*shade) -(0.021012*shade) + (0.986183)
+            g = -(0.000256*shade*shade) -(0.025906*shade) + (0.980335)
+            b = -(0.000288*shade*shade) -(0.025329*shade) + (0.991496)
+            return (r, g, b, 1.0)
+    
     
     class BuildSector:
         sectorDataNames = namedtuple('SectorData', ['wallptr', 'wallnum', 'ceilingz', 'floorz', 'ceilingstat', 'floorstat',
@@ -340,6 +351,9 @@ class BuildMap:
 
             def getShade(self):
                 return self.sector.data.floorshade if self.isFloor() else self.sector.data.ceilingshade
+            
+            def getShadeColor(self):
+                return self.bmap.calculateShadeColor(self.getShade())
 
             def getPal(self):
                 return self.sector.data.floorpal if self.isFloor() else self.sector.data.ceilingpal
@@ -579,6 +593,9 @@ class BuildMap:
                 else:
                     return self.wall.data.picnum
             
+            def getShadeColor(self):
+                return self.bmap.calculateShadeColor(self.wall.data.shade)
+            
             def getName(self, useIndexInMap=False, prefix=""):
                 if self.wallType == self.bmap.WallType.REDBOT:
                     return self.wall.getName(useIndexInMap, prefix)+"_Bot"
@@ -666,6 +683,9 @@ class BuildMap:
                     return (0.5, 0.5, 0.5)
             else:
                 return scale
+            
+        def getShadeColor(self):
+            return self.bmap.calculateShadeColor(self.data.shade)
         
         def getName(self, prefix=""):
             return "%sSprite_%03d" % (prefix, self.spriteIndex)

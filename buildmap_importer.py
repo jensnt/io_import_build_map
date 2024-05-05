@@ -259,7 +259,7 @@ class BuildMapImporter:
                                      Vector((0, -1 * scale_x, 2 * scale_y)),
                                      Vector((0, -1 * scale_x, 0 * scale_y))]
                 
-                objCrtr.addFace([0, 1, 2, 3], sprite.data.picnum)
+                objCrtr.addFace([0, 1, 2, 3], sprite.data.picnum, sprite.getShadeColor())
                 flipX = int(sprite.isFlippedX())
                 flipY = int(sprite.isFlippedY())
                 objCrtr.vertUVs = [(1-flipX, flipY), (1-flipX, 1-flipY), (flipX, 1-flipY), (flipX, flipY)]
@@ -380,6 +380,9 @@ class BuildMapImporter:
                                          flipPlus    = 0,
                                          flipAtStart = False )
         
+        if wall.getTexRotate():  ## TODO This does not correctly rotate the textures but better that nothing. The correct way to do it is currently unknown.
+            return (uvy,uvx)
+        
         return (uvx,uvy)
     
     
@@ -418,7 +421,7 @@ class BuildMapImporter:
                 
                 if tessellationValid:
                     for faceIdxTriple in faceIndices:
-                        objCrtrLvl.addFace([objCrtrLvl.vertIdx+faceIdxTriple[0], objCrtrLvl.vertIdx+faceIdxTriple[1], objCrtrLvl.vertIdx+faceIdxTriple[2]], level.getPicNum(), flipped=level.isCeiling())
+                        objCrtrLvl.addFace([objCrtrLvl.vertIdx+faceIdxTriple[0], objCrtrLvl.vertIdx+faceIdxTriple[1], objCrtrLvl.vertIdx+faceIdxTriple[2]], level.getPicNum(), level.getShadeColor(), flipped=level.isCeiling())
                         for faceIdx in faceIdxTriple:
                             objCrtrLvl.vertUVs.append(self.calculateSectorUVCoords(level, sector.walls[faceIdx].xScal, sector.walls[faceIdx].yScal))
                     for wall in sector.walls:
@@ -434,7 +437,7 @@ class BuildMapImporter:
                             objCrtrLvl.vertUVs.append(self.calculateSectorUVCoords(level, vert.x, vert.y))
                             face.append(objCrtrLvl.vertIdx)
                             objCrtrLvl.vertIdx += 1
-                        objCrtrLvl.addFace(face, level.getPicNum(), flipped=level.isFloor())
+                        objCrtrLvl.addFace(face, level.getPicNum(), level.getShadeColor(), flipped=level.isFloor())
                 
                 if splitSectors:
                     objCrtrLvl.create(collectionSkyGeo if levelSplitSky else collectionMapGeo)
@@ -454,7 +457,7 @@ class BuildMapImporter:
                         face.append(objCrtrWall.vertIdx)
                         objCrtrWall.vertIdx += 1
                     if len(face) > 0:
-                        objCrtrWall.addFace(face, wPart.getPicNum())
+                        objCrtrWall.addFace(face, wPart.getPicNum(), wPart.getShadeColor())
                     if splitThisWall:
                         objCrtrWall.create(collectionSkyGeo if splitToSky else collectionWalls)
                         self.saveWallCustomProps(wall, objCrtrWall.obj)
@@ -472,14 +475,17 @@ class BuildMapImporter:
             self.edges = list()
             self.faces = list()
             self.facePicnums = list()
+            self.faceShadeColors = list()
             self.faceIsFlipped = list()
             self.picnumMatIdxDict = dict()
             self.obj = None
+            self.vertColorLayer = None
             self.vertIdx = 0
         
-        def addFace(self, face, picnum=0, flipped=False):
+        def addFace(self, face, picnum=0, vertShadeColor=(1.0, 1.0, 1.0, 1.0), flipped=False):
             self.faces.append(face)
             self.facePicnums.append(picnum)
+            self.faceShadeColors.append(vertShadeColor)
             self.faceIsFlipped.append(flipped)
         
         def create(self, collection=None):
@@ -505,10 +511,14 @@ class BuildMapImporter:
             for idx, loop in enumerate(self.obj.data.loops):
                 newUVMap.data[idx].uv = self.vertUVs[idx]
 
-            ## Loop over the faces again to assign the materials and flip normals for correct face orientation
+            ## Loop over the faces again to assign the materials, vertex colors and flip normals for correct face orientation
+            self.vertColorLayer = self.obj.data.vertex_colors.new(name="Shade", do_init=False)
             for face in self.obj.data.polygons:
                 face.material_index = self.picnumMatIdxDict[self.facePicnums[face.index]]
                 if self.faceIsFlipped[face.index]:
                     face.flip()
+                if self.vertColorLayer is not None:
+                    for loop_idx in face.loop_indices:
+                        self.vertColorLayer.data[loop_idx].color = self.faceShadeColors[face.index]
 
             return self.obj

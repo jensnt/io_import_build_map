@@ -171,7 +171,21 @@ class materialManager:
         newMat.node_tree.links.new(nodeImg.outputs["Color"], nodePbr.inputs["Base Color"])
         newMat.node_tree.links.new(nodeImg.outputs["Alpha"], nodePbr.inputs["Alpha"])
         
-        ## Adding nodes to created materials to achieve a more realistic appearance.
+        ## Adding Color Attribute node for shade values
+        nodeAttribute = newMat.node_tree.nodes.new(type='ShaderNodeAttribute')
+        nodeAttribute.attribute_name = "Shade"
+        nodeAttribute.location = (-600, 925)
+        
+        nodeAttrMix = newMat.node_tree.nodes.new(type='ShaderNodeMixRGB')
+        nodeAttrMix.blend_type = 'MULTIPLY'
+        nodeAttrMix.inputs["Fac"].default_value = 1
+        nodeAttrMix.location = (-200, 925)
+            
+        newMat.node_tree.links.new(nodeAttribute.outputs["Color"], nodeAttrMix.inputs["Color2"])
+        newMat.node_tree.links.new(nodeImg.outputs["Color"], nodeAttrMix.inputs["Color1"])
+        newMat.node_tree.links.new(nodeAttrMix.outputs["Color"], nodePbr.inputs["Base Color"])
+        
+        ## Adding nodes for a more realistic appearance.
         if self.proceduralMaterialEffects:
             nodeBevel = newMat.node_tree.nodes.new(type='ShaderNodeBevel')
             nodeBevel.samples = 16
