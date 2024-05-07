@@ -188,7 +188,7 @@ class materialManager:
             newMat.node_tree.links.new(nodeImg.outputs["Color"], nodeAttrMix.inputs["Color1"])
             newMat.node_tree.links.new(nodeAttrMix.outputs["Color"], nodePbr.inputs["Base Color"])
         
-        ## Adding nodes for a more realistic appearance.
+        ## Adding nodes for procedural details
         if self.proceduralMaterialEffects:
             nodeBevel = newMat.node_tree.nodes.new(type='ShaderNodeBevel')
             nodeBevel.samples = 16

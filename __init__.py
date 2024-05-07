@@ -171,6 +171,10 @@ class ImportBuildMap(bpy.types.Operator, ImportHelper):
         name="Use Back Face Culling",
         description = ("Use back face culling to hide the back side of faces"),
         default = False)
+    heuristicWallSearch : bpy.props.BoolProperty(
+        name="Heuristic Wall Search",
+        description = ("Try to find neighboring walls between sectors based on their position. This might fix errors in the map but can also introduce errors."),
+        default = False)
     ignoreErrors : bpy.props.BoolProperty(
         name="Ignore Map Errors",
         description = ("Try to continue parsing a corrupted map file. Corrupted Sectors will be skipped"),
@@ -207,16 +211,13 @@ class ImportBuildMap(bpy.types.Operator, ImportHelper):
             self.report({'WARNING'}, "No Texture Folder specified. Materials will be black. Specify in: Edit > Preferences > Add-ons > Import-Export: Import BUILD Map format")
         
         try:
-            bmap = buildmap_format.BuildMap(self.filepath, self.ignoreErrors)
+            bmap = buildmap_format.BuildMap(self.filepath, self.heuristicWallSearch, self.ignoreErrors)
         except ValueError as e:
             self.report({'ERROR'}, 'Parsing file failed! %s'%str(e))
         except:
             log.error("Parsing file failed!")
             self.report({'ERROR'}, 'Parsing file failed!')
         else:
-            if bmap.data.mapversion == 9:
-                log.warning("BUILD Map Version 9 TROR is not yet fully supported. The imported map might have errors.")
-                self.report({'WARNING'}, "BUILD Map Version 9 TROR is not yet fully supported. The imported map might have errors.")
             mapCollection = bpy.data.collections.new(os.path.basename(self.filepath))
             context.collection.children.link(mapCollection)
             matManager = buildmap_materialmanager.materialManager(self.textureFolder, self.userArtTextureFolder, self.reuseExistingMaterials, self.sampleClosestTexel, self.shadeToVertexColors, self.proceduralMaterialEffects, self.useBackfaceCulling)
