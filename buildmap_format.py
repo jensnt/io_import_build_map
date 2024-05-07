@@ -57,7 +57,8 @@ class BuildMap:
             self.numwalls   = None
             self.numsprites = None
     
-    def __init__(self, mapFilePath, ignoreErrors=False):
+    def __init__(self, mapFilePath, heuristicWallSearch=False, ignoreErrors=False):
+        self.heuristicWallSearch = heuristicWallSearch
         self.ignoreErrors = ignoreErrors
         if not isinstance(mapFilePath, str) or not os.path.isfile(mapFilePath):
             self.handleError(ignorable=False, errorMsg="File not found: %s" % mapFilePath)
@@ -134,7 +135,10 @@ class BuildMap:
                     wallIndexInSect += 1
 
         ## Postprocessing: Find wall and sector neighbors of walls
-        self.find_wall_neighbors()
+        if self.heuristicWallSearch:
+            self.find_wall_neighbors_heuristic()
+        else:
+            self.find_wall_neighbors_by_index()
 
         ## Postprocessing: Calculate Wall vectors and angles with now known basic properties
         for wall in self.walls:
@@ -205,23 +209,23 @@ class BuildMap:
     def getWallListString(self, wall_list):
         return "; ".join([wall.getName() for wall in wall_list])
     
-    def find_wall_neighbors(self):  ## TODO I think neighbors are wrongly detected with TROR! This needs to be sorted out FIRST before thinking of any other ideas how to fix Walls with TROR
+    def find_wall_neighbors_heuristic(self):
         ## Find wall and sector neighbors of walls using Coordinates.
         ## This has in some cases shown more trustworthy results than relying on the walls nextwall and nextsector fields.
         ## This can be improved by taking z coordinates into account as a step to support TROR
         walls_dict = dict()
         for wall in self.getWalls():
-            nextWall = wall.getPoint2Wall()
-            if nextWall is not None:
-                key = tuple(sorted([(wall.data.x, wall.data.y), (nextWall.data.x, nextWall.data.y)]))
+            point2Wall = wall.getPoint2Wall()
+            if point2Wall is not None:
+                key = tuple(sorted([(wall.data.x, wall.data.y), (point2Wall.data.x, point2Wall.data.y)]))
                 if walls_dict.get(key) is None:
                     walls_dict[key] = list()
                 walls_dict[key].append(wall)
         for wall_list in walls_dict.values():
             if len(wall_list) < 2:
                 continue  ## This wall has no neighbors
-            if len(wall_list) > 2:
-                log.warning("More than 2 neighboring walls found: %s" % self.getWallListString(wall_list))
+            if (self.data.mapversion < 9) and (len(wall_list) > 2):
+                log.warning("More than 2 neighboring walls found in non-TROR map: %s" % self.getWallListString(wall_list))
             if wall_list[0].sector.sectorIndex == wall_list[1].sector.sectorIndex:
                 log.warning("Two walls in same sector found with same coordinates: %s" % self.getWallListString(wall_list))
                 continue  ## Walls in the same sector can't be neighbors!
@@ -229,6 +233,13 @@ class BuildMap:
             wall_list[0].neighborWallIndexInSector = wall_list[1].indexInSector
             wall_list[1].neighborSectorIndex       = wall_list[0].sector.sectorIndex
             wall_list[1].neighborWallIndexInSector = wall_list[0].indexInSector
+    
+    def find_wall_neighbors_by_index(self):
+        for wall in self.getWalls():
+            if (wall.data.nextwall >= 0) and (wall.data.nextsector >= 0) and (wall.data.nextwall < self.data.numwalls) and (wall.data.nextsector < self.data.numsectors):
+                wall.neighborSectorIndex = wall.data.nextsector
+                wall.neighborWallIndexInSector = self.walls[wall.data.nextwall].indexInSector
+    
     
     def calculateAngle(buildAngle):
         return ((float(buildAngle) * math.pi) / 1024) * -1  ## 2048 = 360 deg = 2 PI
@@ -541,12 +552,12 @@ class BuildMap:
                         self.alignTexZ = self.neighborSector.getCeiling().zScal    ## Flags = 0: Aligned to ceiling of neighbor sector (lower edge of upper wall portion)
                 
                 self.zBottom = self.sectBotLevel.zScal
-                nextWall = self.wall.getPoint2Wall()
-                if nextWall is not None:
-                    self.vertices.append(Vector(( self.wall.xScal, self.wall.yScal, self.sectBotLevel.getHeightAtPos(self.wall.xScal, self.wall.yScal) )))
-                    self.vertices.append(Vector((  nextWall.xScal,  nextWall.yScal, self.sectBotLevel.getHeightAtPos( nextWall.xScal,  nextWall.yScal) )))
-                    self.vertices.append(Vector((  nextWall.xScal,  nextWall.yScal, self.sectTopLevel.getHeightAtPos( nextWall.xScal,  nextWall.yScal) )))
-                    self.vertices.append(Vector(( self.wall.xScal, self.wall.yScal, self.sectTopLevel.getHeightAtPos(self.wall.xScal, self.wall.yScal) )))
+                point2Wall = self.wall.getPoint2Wall()
+                if point2Wall is not None:
+                    self.vertices.append(Vector(( self.wall.xScal,  self.wall.yScal,  self.sectBotLevel.getHeightAtPos(self.wall.xScal,  self.wall.yScal)  )))
+                    self.vertices.append(Vector(( point2Wall.xScal, point2Wall.yScal, self.sectBotLevel.getHeightAtPos(point2Wall.xScal, point2Wall.yScal) )))
+                    self.vertices.append(Vector(( point2Wall.xScal, point2Wall.yScal, self.sectTopLevel.getHeightAtPos(point2Wall.xScal, point2Wall.yScal) )))
+                    self.vertices.append(Vector(( self.wall.xScal,  self.wall.yScal,  self.sectTopLevel.getHeightAtPos(self.wall.xScal,  self.wall.yScal)  )))
             
             def getClippedVertices(self):
                 cverts = list()
