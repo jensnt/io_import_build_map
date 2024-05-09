@@ -31,36 +31,45 @@ Or you can use textures from a game if you own a copy. See: [Getting original te
 The following Import Options are available:
 
 - Object Prefix
-  - This option specifies a prefix that will be used in the name of every imported object
+  - This option specifies a prefix that will be used in the name of every imported object.
 - Split Sectors
-  - If this is enabled, the floor and ceiling of every sector will be split off into a separate object.  
-    This is necessary if you want custom properties saved for sectors.
+  - If enabled, the floor and ceiling of every sector will be split off into separate objects.  
+    This is necessary to import custom properties from BUILD-Map structures for sectors.
 - Split Walls
-  - If this is enabled, all walls will be split off into separate objects.  
-    This is neccessary if you want custom properties saved for walls.
+  - If enabled, walls will be split off into separate objects.  
+    This is necessary to import custom properties from BUILD-Map structures for walls.
 - Split Sky
-  - If this is enabled, floors and ceilings with parallaxing enabled will be split off into separate objects and sorted into the "Sky" collection.
+  - If enabled, floors and ceilings with parallaxing enabled and associated walls will be split off into separate objects and sorted into the "Sky" collection.
 - Scale Sprites as in Game
-  - Some sprites are displayed in a different size in game compared to map editors.  
-    If this option is enabled the importer will try to scale them as they appear in game.
+  - Some special sprites (e.g. weapons and ammo) can have a different scale in game compared to map editors.  
+    If this option is enabled, the importer will try to scale them as they appear in game.
 - Wall Sprite Offset
-  - This is useful to avoid Z-fighting for sprites that are placed right onto a wall.  
-    A small offset like 0.01 is enough in many cases.
+  - Separate wall sprites from walls as specified by this offset.  
+    This is useful to avoid Z-fighting.  
+    A small offset like 0.01 m is enough in many cases.
 - Use Custom User Art
-  - If a Custom User Art texture folder is specified in the preferences you can use this option to enable or disable the usage of Custom User Art textures.
+  - If a Custom User Art texture folder is specified in the Add-on preferences you can use this option to enable or disable the usage of Custom User Art textures.  
+    These textures will take preference over the normal Texture folder within the User Art Range.  
+    The User Art Range starts with picnum 3584, which is "000-014.png".
 - Reuse Materials
-  - This option specifies if materials that already exist in your blender project with the same name should be reused.  
-    If this is disabled new materials will be created with a suffix.
+  - If enabled, materials that already exist in the blend file, having the same name as this Add-on would create, will be reused instead of creating new ones.  
+    If disabled, new materials will be created with a suffix.
+- Shade to Vertex Colors
+  - Save Ceiling, Floor, Wall and Sprite Shade values as Vertex Color Attributes and use those in created Materials.
 - Pixel Shading
-  - This option makes textures render with hard pixel edges.
+  - If enabled, textures will render with hard pixel edges instead of interpolation.
 - Procedural Material Effects
-  - If this is enabled the add-on will create additional shader nodes to generate a little more realistic appearance of the materials.  
+  - If enabled, additional shader nodes will be created in materials to add procedural details.  
     This works best with "Pixel Shading" disabled.
 - Use Back Face Culling
-  - This enables Back Face Culling for the created materials
+  - If enabled, use back-face culling in created materials to hide the back side of faces.
+- Heuristic Wall Search
+  - Try to find neighboring walls between sectors based on their position.  
+    This might fix errors in the map but can also introduce errors.
 - Ignore Map Errors
-  - If you encounter a corrupted map that gives you errors where for example the number of sectors appears incorrect, you can try this option.  
-    The importer will try to ignore corrupted parts of the map. No guarantee for success, though.
+  - If you encounter a corrupted map that gives you errors where for example the number of walls appears incorrect, you can try this option.  
+    The importer will try to skip corrupted parts of the map.  
+    No guarantee for success, though.
 
 ## Custom Properties
 
