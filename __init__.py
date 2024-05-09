@@ -21,7 +21,7 @@
 bl_info = {
     "name": "Import BUILD Map format",
     "author": "Jens Neitzel",
-    "version": (1, 1, 1),
+    "version": (1, 2, 0),
     "blender": (2, 93, 0),
     "location": "File > Import > BUILD Map (.map)",
     "description": "Import geometry and materials from a BUILD Map file.",
