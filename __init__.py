@@ -118,42 +118,44 @@ class ImportBuildMap(bpy.types.Operator, ImportHelper):
     
     objectPrefix : bpy.props.StringProperty(
         name="Object Prefix",
-        description = ("Optional Prefix for created Objects"),
+        description = ("This option specifies a prefix that will be used in the name of every imported object"),
         default = "")
     splitSectors : bpy.props.BoolProperty(
         name="Split Sectors",
-        description = ("Create a separete object for every Sector. "
-                       "This will also store custom properties in every Sector Object"),
+        description = ("If enabled, the floor and ceiling of every sector will be split off into separate objects.\n"
+                       "This is necessary to import custom properties from BUILD-Map structures for sectors"),
         default = False)
     splitWalls : bpy.props.BoolProperty(
         name="Split Walls",
-        description = ("Create a separete object for every Wall. "
-                       "This will also store custom properties in every Wall Object"),
+        description = ("If enabled, walls will be split off into separate objects.\n"
+                       "This is necessary to import custom properties from BUILD-Map structures for walls"),
         default = False)
     splitSky : bpy.props.BoolProperty(
         name="Split Sky",
-        description = ("Create separete objects for ceilings and walls representing the sky"),
+        description = ("If enabled, floors and ceilings with parallaxing enabled and associated walls will be split off into separate objects and sorted into the \"Sky\" collection"),
         default = True)
     scaleSpritesLikeInGame : bpy.props.BoolProperty(
         name="Scale Sprites as in Game",
-        description = ("Some special Sprites (e.g. weapons and ammo) are always the same fixed scale in game "
-                       "even though they might be scaled differently in the map editor. "
-                       "If this option is set, those sprites are scaled like in the game"),
+        description = ("Some special sprites (e.g. weapons and ammo) can have a different scale in game compared to map editors.\n"
+                       "If this option is enabled, the importer will try to scale them as they appear in game"),
         default = True)
     wallSpriteOffset : bpy.props.FloatProperty(
         name="Wall Sprite Offset",
-        description = ("Separates wall sprites from walls by this offset"),
+        description = ("Separate wall sprites from walls as specified by this offset.\n"
+                       "This is useful to avoid Z-fighting.\n"
+                       "A small offset like 0.01 m is enough in many cases"),
         default = 0,
         unit = 'LENGTH')
     useUserArt : bpy.props.BoolProperty(
         name="Use Custom User Art",
-        description = ("Use Custom User Art Textures if the optional Custom User Art folder is configured. "
-                       "These textures will take preference over the normal Texture folder in the User Art Range. "
-                       "(The User Art Range starts with picnum 3584, which is 000-014.png)"),
+        description = ("If a Custom User Art texture folder is specified in the Add-on preferences you can use this option to enable or disable the usage of Custom User Art textures.\n"
+                       "These textures will take preference over the normal Texture folder within the User Art Range.\n"
+                       "The User Art Range starts with picnum 3584, which is \"000-014.png\""),
         default = True)
     reuseExistingMaterials : bpy.props.BoolProperty(
         name="Reuse Materials",
-        description = ("Reuse existing materials"),
+        description = ("If enabled, materials that already exist in the blend file, having the same name as this Add-on would create, will be reused instead of creating new ones.\n"
+                       "If disabled, new materials will be created with a suffix"),
         default = True)
     shadeToVertexColors : bpy.props.BoolProperty(
         name="Shade to Vertex Colors",
@@ -161,23 +163,27 @@ class ImportBuildMap(bpy.types.Operator, ImportHelper):
         default = True)
     sampleClosestTexel : bpy.props.BoolProperty(
         name="Pixel Shading",
-        description = ("Sample closest texel on textures instead of interpolating"),
+        description = ("If enabled, textures will render with hard pixel edges instead of interpolation"),
         default = True)
     proceduralMaterialEffects : bpy.props.BoolProperty(
         name="Procedural Material Effects",
-        description = ("Adding nodes in created materials, adding procedural details"),
+        description = ("If enabled, additional shader nodes will be created in materials to add procedural details.\n"
+                       "This works best with \"Pixel Shading\" disabled"),
         default = False)
     useBackfaceCulling : bpy.props.BoolProperty(
         name="Use Back Face Culling",
-        description = ("Use back face culling to hide the back side of faces"),
+        description = ("If enabled, use back-face culling in created materials to hide the back side of faces"),
         default = False)
     heuristicWallSearch : bpy.props.BoolProperty(
         name="Heuristic Wall Search",
-        description = ("Try to find neighboring walls between sectors based on their position. This might fix errors in the map but can also introduce errors."),
+        description = ("Try to find neighboring walls between sectors based on their position.\n"
+                       "This might fix errors in the map but can also introduce errors"),
         default = False)
     ignoreErrors : bpy.props.BoolProperty(
         name="Ignore Map Errors",
-        description = ("Try to continue parsing a corrupted map file. Corrupted Sectors will be skipped"),
+        description = ("If you encounter a corrupted map that gives you errors where for example the number of walls appears incorrect, you can try this option.\n"
+                       "The importer will try to skip corrupted parts of the map.\n"
+                       "No guarantee for success, though"),
         default = False)
     
     textureFolder = None
