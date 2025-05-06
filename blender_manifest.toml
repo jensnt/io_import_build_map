@@ -1,0 +1,20 @@
+schema_version = "1.0.0"
+
+id = "io_import_build_map"
+version = "1.2.0"
+name = "BUILD Map Importer"
+tagline = "Import BUILD engine maps as used in games like Duke Nukem 3D and Blood"
+maintainer = "Jens Neitzel"
+type = "add-on"
+
+website = "https://github.com/jensnt/io_import_build_map"
+
+tags = ["Import-Export", "Mesh", "Material"]
+
+blender_version_min = "2.93.0"
+
+license = ["SPDX:GPL-3.0-or-later"]
+copyright = ["2023 Jens Neitzel"]
+
+[permissions]
+files = "Import .map files and textures from filesystem"
