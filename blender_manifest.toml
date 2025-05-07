@@ -3,7 +3,7 @@ schema_version = "1.0.0"
 id = "io_import_build_map"
 version = "1.2.0"
 name = "BUILD Map Importer"
-tagline = "Import BUILD engine maps as used in games like Duke Nukem 3D and Blood"
+tagline = "Import BUILD Engine maps as used in Duke Nukem 3D, Blood, etc"
 maintainer = "Jens Neitzel"
 type = "add-on"
 
@@ -18,3 +18,12 @@ copyright = ["2023 Jens Neitzel"]
 
 [permissions]
 files = "Import .map files and textures from filesystem"
+
+[build]
+paths_exclude_pattern = [
+  "__pycache__/",
+  "/.git/",
+  "/*.zip",
+  "/example/",
+  "/images/",
+]
