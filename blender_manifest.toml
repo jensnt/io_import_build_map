@@ -11,7 +11,7 @@ website = "https://github.com/jensnt/io_import_build_map"
 
 tags = ["Import-Export", "Mesh", "Material"]
 
-blender_version_min = "2.93.0"
+blender_version_min = "4.2.0"
 
 license = ["SPDX:GPL-3.0-or-later"]
 copyright = ["2023 Jens Neitzel"]
