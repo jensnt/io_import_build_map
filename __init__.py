@@ -220,9 +220,11 @@ class ImportBuildMap(bpy.types.Operator, ImportHelper):
             bmap = buildmap_format.BuildMap(self.filepath, self.heuristicWallSearch, self.ignoreErrors)
         except ValueError as e:
             self.report({'ERROR'}, 'Parsing file failed! %s'%str(e))
-        except:
-            log.error("Parsing file failed!")
-            self.report({'ERROR'}, 'Parsing file failed!')
+            return {'CANCELLED'}
+        except Exception as e:
+            log.error("Parsing file failed!", exc_info=True)
+            self.report({'ERROR'}, f"Parsing file failed! Exception: {e}")
+            return {'CANCELLED'}
         else:
             mapCollection = bpy.data.collections.new(os.path.basename(self.filepath))
             context.collection.children.link(mapCollection)
@@ -233,9 +235,10 @@ class ImportBuildMap(bpy.types.Operator, ImportHelper):
             importer.addSprites(self.wallSpriteOffset, self.scaleSpritesLikeInGame, self.shadeToVertexColors)
             importer.addMapGeometry(self.splitSectors, self.splitWalls, self.splitSky, self.shadeToVertexColors)
             log.debug("Number of Materials: %s" % len(matManager.materialDict))
-        
-        wm.progress_end()
-        return {'FINISHED'}
+            wm.progress_update(1)
+            return {'FINISHED'}
+        finally:
+            wm.progress_end()
 
     def invoke(self, context, event):
         wm = context.window_manager
