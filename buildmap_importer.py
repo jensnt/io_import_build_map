@@ -342,48 +342,61 @@ class BuildMapImporter:
     
     
     def calculateWallUVCoords(self, wPart, vertex):
-        wall                       = wPart.wall
-        alignTexZ                  = wPart.alignTexZ*-1
-        picDimX,picDimY            = self.matManager.getDimensions(wPart.getPicNum())
-        vertexDistFromWallStart    = (Vector((vertex.x, vertex.y*-1)) - wall.startVect).length
-        zCoordRelativeToZBottom    = ((vertex.z*-1) - wPart.zBottom*-1)
-        alignTexZRelativeToZBottom = (alignTexZ - wPart.zBottom*-1)
+        wall = wPart.wall
+        alignTexZ = wPart.alignTexZ * -1
+        picDimX, picDimY = self.matManager.getDimensions(wPart.getPicNum())
+        
+        # if the 90°-rotation flag is set, swap texture width and height
+        if wall.getTexRotate():
+            picDimX, picDimY = picDimY, picDimX
+        
+        # compute normalized distance along the wall (0 to 1)
+        vertexDistFromWallStart = (Vector((vertex.x, vertex.y*-1)) - wall.startVect).length
+        relativeWallPos = 0.0 if wall.length == 0 else (vertexDistFromWallStart / wall.length)
+        
+        # compute vertical position relative to floor
+        zCoordRelativeToZBottom = (vertex.z * -1) - (wPart.zBottom * -1)
+        alignTexZRelativeToZBottom = alignTexZ - (wPart.zBottom * -1)
         
         ## X panning increases when the texture is moved left (uv coordinate moved right) and is realative to the texture width (not a fixed value like Y Panning)
-        inputXCoord = 0.0 if wall.length == 0 else (vertexDistFromWallStart / wall.length)
-        uvx = self.calculateWallUVCoord( inputCoord  = inputXCoord,
-                                         alignTexZ   = 0,
-                                         flipFactor  = wall.getTexFlipXFactor(),
-                                         repeat      = wall.data.xrepeat,
-                                         panning     = wall.data.xpanning,
-                                         picDim      = picDimX,
-                                         panDivisor  = picDimX,
-                                         panSign     = 1,
-                                         pixFactor   = 1,
-                                         flipPlus    = 1,
-                                         flipAtStart = True )
+        uvx = self.calculateWallUVCoord(
+            inputCoord  = relativeWallPos,
+            alignTexZ   = 0,
+            flipFactor  = wall.getTexFlipXFactor(),
+            repeat      = wall.data.xrepeat,
+            panning     = wall.data.xpanning,
+            picDim      = picDimX,
+            panDivisor  = picDimX,
+            panSign     = 1,
+            pixFactor   = 1,
+            flipPlus    = 1,
+            flipAtStart = True
+        )
         
         ## 1pud = 1024z = 4px = 0.125m
         ## default wall height = 16pud = 16384z = 64px = 2m
         ## the default wall height of 8192*2 z units is supposed to fit 64 pixels of a non stretched texture
         ## (wall.yrepeat * 8) this is how many pixels a wall of the default height of (8192*2) really covers! (not 64 anymore) (a wall of different height covers different amout of pixels)
         ## ypanning=256 means moving the texture up (vertex down) one size of the whole image how it appears stretched (moving much more if stretched wide)
-        uvy = self.calculateWallUVCoord( inputCoord  = zCoordRelativeToZBottom,
-                                         alignTexZ   = alignTexZRelativeToZBottom,
-                                         flipFactor  = wall.getTexFlipYFactor(),
-                                         repeat      = wall.data.yrepeat,
-                                         panning     = wall.data.ypanning,
-                                         picDim      = picDimY,
-                                         panDivisor  = 256,
-                                         panSign     = -1,
-                                         pixFactor   = 0.5,
-                                         flipPlus    = 0,
-                                         flipAtStart = False )
+        uvy = self.calculateWallUVCoord(
+            inputCoord  = zCoordRelativeToZBottom,
+            alignTexZ   = alignTexZRelativeToZBottom,
+            flipFactor  = wall.getTexFlipYFactor(),
+            repeat      = wall.data.yrepeat,
+            panning     = wall.data.ypanning,
+            picDim      = picDimY,
+            panDivisor  = 256,
+            panSign     = -1,
+            pixFactor   = 0.5,
+            flipPlus    = 0,
+            flipAtStart = False
+        )
         
-        if wall.getTexRotate():  ## TODO This does not correctly rotate the textures but better that nothing. The correct way to do it is currently unknown.
-            return (uvy,uvx)
+        # if rotated, rotate UV by 90° clockwise:
+        if wall.getTexRotate():
+            return (uvy, 1.0 - uvx)
         
-        return (uvx,uvy)
+        return (uvx, uvy)
     
     
     
