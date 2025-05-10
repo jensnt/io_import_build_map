@@ -20,12 +20,12 @@
 
 
 
+from collections import namedtuple
+from enum import Enum
 import logging
 import math
 import os
 import struct
-from collections import namedtuple
-from enum import Enum
 from typing import List
 
 from mathutils import Vector
