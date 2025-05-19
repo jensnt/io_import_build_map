@@ -42,7 +42,7 @@ class BuildMapImporter:
     
     def saveMapCustomProps(self, obj):
         if (self.bmap is not None) and (obj is not None):
-            obj["mapversion"] = self.bmap.data.mapversion
+            obj["mapversion"] = self.bmap.data.mapversion_major
             obj["posx"]       = self.bmap.data.posx
             obj["posy"]       = self.bmap.data.posy
             obj["posz"]       = self.bmap.data.posz

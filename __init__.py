@@ -47,7 +47,7 @@ import os
 import bpy
 from bpy_extras.io_utils import ImportHelper
 
-from . import buildmap_format
+from .buildmap_format import BuildMapFactory as BuildMap
 from . import buildmap_importer
 from . import buildmap_materialmanager
 
@@ -217,7 +217,7 @@ class ImportBuildMap(bpy.types.Operator, ImportHelper):
             self.report({'WARNING'}, "No Texture Folder specified. Materials will be black. Specify in: Edit > Preferences > Add-ons > Import-Export: Import BUILD Map format")
         
         try:
-            bmap = buildmap_format.BuildMap(self.filepath, self.heuristicWallSearch, self.ignoreErrors)
+            bmap = BuildMap(self.filepath, self.heuristicWallSearch, self.ignoreErrors)
         except ValueError as e:
             self.report({'ERROR'}, 'Parsing file failed! %s'%str(e))
             return {'CANCELLED'}
