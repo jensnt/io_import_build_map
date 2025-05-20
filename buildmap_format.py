@@ -36,7 +36,6 @@ log = logging.getLogger(__name__)
 
 
 class IPartParser(ABC):
-    """Interface für Sektions-/Wand-/Sprite-Parser."""
     @abstractmethod
     def parse(self, mapFile, parentBuildMap, count):
         pass
@@ -128,7 +127,7 @@ class BuildSpriteParser(IPartParser):
             if 0 <= new_sprite.data.sectnum < new_sprite.bmap.data.numsectors:
                 new_sprite.bmap.sectors[new_sprite.data.sectnum].sprites.append(new_sprite)
             else:
-                log.warning("Sprite %s sectnum is not in range of maps number of sectors: %s" % (new_sprite.spriteIndex, new_sprite.bmap.data.numsectors))
+                log.warning(f"Sprite {new_sprite.spriteIndex} sectnum is not in range of maps number of sectors: {new_sprite.bmap.data.numsectors}")
             
             sprites.append(new_sprite)
         log.debug(f"BuildSpriteParser - Parsed {len(sprites)} Sprites.")
@@ -164,10 +163,10 @@ class BuildMapBase(ABC):
         self.heuristicWallSearch = heuristicWallSearch
         self.ignoreErrors = ignoreErrors
         if not isinstance(mapFilePath, str) or not os.path.isfile(mapFilePath):
-            self.handleError(ignorable=False, errorMsg="File not found: %s" % mapFilePath)
+            self.handleError(ignorable=False, errorMsg=f"File not found: {mapFilePath}")
             return
 
-        log.debug("Opening file: %s" % mapFilePath)
+        log.debug(f"Opening file: {mapFilePath}")
         self.readMapFile(mapFilePath)
 
         self.posxScal = float(self.data.posx) / 512
@@ -185,7 +184,7 @@ class BuildMapBase(ABC):
                     firstWallInLoop = self.getWall(sect.data.wallptr)
                     if firstWallInLoop is None:
                         sect.corrupted = True
-                        self.handleError(ignorable=True, errorMsg="Unable to find next wall for first loop for sector %s" % sect.sectorIndex)
+                        self.handleError(ignorable=True, errorMsg=f"Unable to find next wall for first loop for sector {sect.sectorIndex}")
                         break
                 else:
                     ## To find the first wall of the next loop,
@@ -196,7 +195,7 @@ class BuildMapBase(ABC):
                         wall = self.getWall(findNextIdx)
                         if wall is None:
                             sect.corrupted = True
-                            self.handleError(ignorable=True, errorMsg="Unable to find next wall for next loop for sector %s" % sect.sectorIndex)
+                            self.handleError(ignorable=True, errorMsg=f"Unable to find next wall for next loop for sector {sect.sectorIndex}")
                             break
                         if wall not in sect.walls:
                             firstWallInLoop = wall
@@ -211,18 +210,18 @@ class BuildMapBase(ABC):
                     wallLoop.append(currentWall)
                     if (currentWall.data.point2 < sect.data.wallptr) or (currentWall.data.point2 > sectorWallLastIdx):
                         sect.corrupted = True
-                        self.handleError(ignorable=True, errorMsg="Wall loop extends outside sectors range! wall.data.point2 %s not in range of sector walls! %s to %s for sector %s" % (currentWall.data.point2, sect.data.wallptr, sectorWallLastIdx, sect.sectorIndex))
+                        self.handleError(ignorable=True, errorMsg=f"Wall loop extends outside sectors range! wall.data.point2 {currentWall.data.point2} not in range of sector walls! {sect.data.wallptr} to {sectorWallLastIdx} for sector {sect.sectorIndex}")
                     currentWall = self.getWall(currentWall.data.point2)
                     if (currentWall is None) or (currentWall in wallLoop) or ((not self.ignoreErrors) and (len(sect.walls) >= sect.data.wallnum)):
                         if currentWall is None:
                             sect.corrupted = True
-                            self.handleError(ignorable=True, errorMsg="Unable to find next wall for loop of sector %s ! Wall is outside of map range." % sect.sectorIndex)
+                            self.handleError(ignorable=True, errorMsg=f"Unable to find next wall for loop of sector {sect.sectorIndex} ! Wall is outside of map range.")
                         elif currentWall != firstWallInLoop:
                             sect.corrupted = True
-                            self.handleError(ignorable=True, errorMsg="Wall Loop did not end on first wall in loop in sector %s !" % sect.sectorIndex)
+                            self.handleError(ignorable=True, errorMsg=f"Wall Loop did not end on first wall in loop in sector {sect.sectorIndex} !")
                         if len(sect.walls) > sect.data.wallnum:
                             sect.corrupted = True
-                            log.error("Walls in loop exceed number of walls in sector %s !" % sect.sectorIndex)
+                            log.error(f"Walls in loop exceed number of walls in sector {sect.sectorIndex} !")
                         break
                 sect.wallLoops.append(wallLoop)
         log.debug("Finished Finding Wall Loops")
@@ -245,7 +244,7 @@ class BuildMapBase(ABC):
         ## Postprocessing: Calculate Wall vectors and angles with now known basic properties
         for wall in self.walls:
             if (wall.sector is None) or (wall.sector.corrupted):
-                log.warning("Wall %s is not used or sector is corrupted!" % wall.indexInMap)
+                log.warning(f"Wall {wall.indexInMap} is not used or sector is corrupted!")
             else:
                 wall.__post_init__()
 
@@ -255,7 +254,7 @@ class BuildMapBase(ABC):
                 sect.slopeVector[lvl.name] = Vector(((math.sin(sect.walls[0].angle) * sect.slopeAbs[lvl.name]),
                                                      (math.cos(sect.walls[0].angle) * -1 * sect.slopeAbs[lvl.name])))
 
-        log.debug("Finished parsing file: %s" % mapFilePath)
+        log.debug(f"Finished parsing file: {mapFilePath}")
 
     @abstractmethod
     def _validate_magic_and_version(self, mapFile): pass
@@ -290,8 +289,7 @@ class BuildMapBase(ABC):
             
             if numberOfWallsInAllSectors != self.data.numwalls:
                 self.handleError(ignorable=True,
-                                 errorMsg="Number of walls found in Sectors %s does not match given absolute number of walls: %s !" % (
-                                     numberOfWallsInAllSectors, self.data.numwalls))
+                                 errorMsg=f"Number of walls found in Sectors {numberOfWallsInAllSectors} does not match given absolute number of walls: {self.data.numwalls} !")
             
             self._read_sprites(mapFile)
 
@@ -314,9 +312,9 @@ class BuildMapBase(ABC):
             if len(wall_list) < 2:
                 continue  ## This wall has no neighbors
             if (self.data.mapversion_major < 9) and (len(wall_list) > 2):   ## TODO! This detection must be different for Blood!
-                log.warning("More than 2 neighboring walls found in non-TROR map: %s" % self.getWallListString(wall_list))
+                log.warning(f"More than 2 neighboring walls found in non-TROR map: {self.getWallListString(wall_list)}")
             if wall_list[0].sector.sectorIndex == wall_list[1].sector.sectorIndex:
-                log.warning("Two walls in same sector found with same coordinates: %s" % self.getWallListString(wall_list))
+                log.warning(f"Two walls in same sector found with same coordinates: {self.getWallListString(wall_list)}")
                 continue  ## Walls in the same sector can't be neighbors!
             wall_list[0].neighborSectorIndex       = wall_list[1].sector.sectorIndex
             wall_list[0].neighborWallIndexInSector = wall_list[1].indexInSector
@@ -397,9 +395,9 @@ class BuildSector:
     
     def getName(self, sky=False, prefix=""):
         if sky:
-            return "%sSector_%03d_Sky" % (prefix, self.sectorIndex)
+            return f"{prefix}Sector_{self.sectorIndex:03d}_Sky"
         else:
-            return "%sSector_%03d" % (prefix, self.sectorIndex)
+            return f"{prefix}Sector_{self.sectorIndex:03d}"
     
     def getSpritesString(self):
         return " ".join([sprite.spriteIndex for sprite in self.sprites]).rstrip()
@@ -477,7 +475,7 @@ class BuildSector:
             zC9Sprite = None
             if respectEffectors:
                 for sprite in self.sector.sprites:
-                    if sprite.data.lotag == 13:  ## C-9 Explosive Sprite
+                    if sprite.data.lotag == 13:  ## C-9 Explosive Sprite moves floor to height of sprite until it explodes
                         zC9Sprite = sprite.zScal
                         break
             if (zC9Sprite is not None) and (self.type == self.bmap.Level.FLOOR):
@@ -493,9 +491,9 @@ class BuildSector:
         def getName(self, sky=False, prefix=""):
             lvlName = "Floor" if self.type == self.bmap.Level.FLOOR else "Ceiling"
             if sky:
-                return "%sSector_%03d_%s_Sky" % (prefix, self.sector.sectorIndex, lvlName)
+                return f"{prefix}Sector_{self.sector.sectorIndex:03d}_{lvlName}_Sky"
             else:
-                return "%sSector_%03d_%s" % (prefix, self.sector.sectorIndex, lvlName)
+                return f"{prefix}Sector_{self.sector.sectorIndex:03d}_{lvlName}"
 
 class BuildWall:
     def __init__(self):
@@ -558,9 +556,9 @@ class BuildWall:
     
     def getName(self, useIndexInMap=False, prefix=""):
         if useIndexInMap:
-            return "%sSector_%03d_MapWall_%03d" % (prefix, self.sector.sectorIndex, self.indexInMap)
+            return f"{prefix}Sector_{self.sector.sectorIndex:03d}_MapWall_{self.indexInMap:03d}"
         else:
-            return "%sSector_%03d_SctWall_%03d" % (prefix, self.sector.sectorIndex, self.indexInSector)
+            return f"{prefix}Sector_{self.sector.sectorIndex:03d}_SctWall_{self.indexInSector:03d}"
     
     def getWallParts(self):
         if len(self.wallParts) > 0:
@@ -753,12 +751,13 @@ class BuildSprite:
         return self.bmap.calculateShadeColor(self.data.shade)
     
     def getName(self, prefix=""):
-        return "%sSprite_%03d" % (prefix, self.spriteIndex)
+        return f"{prefix}Sprite_{self.spriteIndex:03d}"
 
 
 
 class BuildMap(BuildMapBase):
     MAGIC_SIGNATURES = [b"\x03\x00\x00\x00", b"\x04\x00\x00\x00", b"\x05\x00\x00\x00", b"\x06\x00\x00\x00", b"\x07\x00\x00\x00", b"\x08\x00\x00\x00", b"\x09\x00\x00\x00"]
+    SUPPORTED_VERSIONS = [7, 8, 9]
     
     def _validate_magic_and_version(self, mapFile):
         magic = mapFile.read(4)
@@ -767,7 +766,7 @@ class BuildMap(BuildMapBase):
             return
         self.data.mapversion_major = struct.unpack('<i', magic)[0]
         self.data.mapversion_minor = None
-        if self.data.mapversion_major not in [7, 8, 9]:
+        if self.data.mapversion_major not in self.SUPPORTED_VERSIONS:
             self.handleError(ignorable=False, errorMsg=f"Unsupported file version {self.data.mapversion_major}! Only BUILD Maps in version 7, 8 and 9 are supported.")
             return
         log.debug(f"mapversion_major: {self.data.mapversion_major}  mapversion_minor: {self.data.mapversion_minor}")
@@ -780,28 +779,28 @@ class BuildMap(BuildMapBase):
         self.data.ang = struct.unpack('<h', mapFile.read(2))[0]
         self.data.cursectnum = struct.unpack('<h', mapFile.read(2))[0]
         self.spawnAngle = BuildMapBase.calculateAngle(self.data.ang)
-        log.debug("posx: %s" % self.data.posx)
-        log.debug("posy: %s" % self.data.posy)
-        log.debug("posz: %s" % self.data.posz)
-        log.debug("ang: %s" % self.data.ang)
-        log.debug("spawnAngle: %s" % self.spawnAngle)
-        log.debug("cursectnum: %s" % self.data.cursectnum)
+        log.debug(f"posx: {self.data.posx}")
+        log.debug(f"posy: {self.data.posy}")
+        log.debug(f"posz: {self.data.posz}")
+        log.debug(f"ang: {self.data.ang}")
+        log.debug(f"spawnAngle: {self.spawnAngle}")
+        log.debug(f"cursectnum: {self.data.cursectnum}")
 
     def _read_sectors(self, mapFile):
         self.data.numsectors = struct.unpack('<H', mapFile.read(2))[0]
-        log.debug("numsectors: %s" % self.data.numsectors)
+        log.debug(f"numsectors: {self.data.numsectors}")
         sect_parser = BuildSectorParser()
         self.sectors = sect_parser.parse(mapFile, self, self.data.numsectors)
 
     def _read_walls(self, mapFile):
         self.data.numwalls = struct.unpack('<H', mapFile.read(2))[0]
-        log.debug("numwalls: %s" % self.data.numwalls)
+        log.debug(f"numwalls: {self.data.numwalls}")
         wall_parser = BuildWallParser()
         self.walls = wall_parser.parse(mapFile, self, self.data.numwalls)
 
     def _read_sprites(self, mapFile):
         self.data.numsprites = struct.unpack('<H', mapFile.read(2))[0]
-        log.debug("numsprites: %s" % self.data.numsprites)
+        log.debug(f"numsprites: {self.data.numsprites}")
         sprite_parser = BuildSpriteParser()
         self.sprites = sprite_parser.parse(mapFile, self, self.data.numsprites)
 
@@ -809,6 +808,7 @@ class BuildMap(BuildMapBase):
 
 class BuildMapBlood(BuildMapBase):
     MAGIC_SIGNATURES = [b"BLM\x1A"]
+    SUPPORTED_VERSIONS = [(7,0)]
     
     def _validate_magic_and_version(self, mapFile):
         magic = mapFile.read(4)
