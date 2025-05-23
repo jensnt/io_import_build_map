@@ -77,8 +77,13 @@ class materialManager:
         return "%04d.png" % picnum
     
     def getTextureFileNamePattern(self, picnum):
-        ## Match file names like: 056-002.png 56-2.png 000568.jpg 568.jpg
-        return r"^(?:0{0,3}%d-0{0,3}%d\.(jpg|png)|0{0,8}%d\.(jpg|png))$" % (self.getArtFileIndex(picnum), self.getArtFileNumber(picnum), picnum)
+        ## Match file names like: 056-002.png 56-2.png 000568.jpg 568.jpg tile0568.png
+        return r"^(?:0{0,3}%d-0{0,3}%d\.(jpg|png)|0{0,8}%d\.(jpg|png)|tile%04d\.(jpg|png))$" % (
+            self.getArtFileIndex(picnum),
+            self.getArtFileNumber(picnum),
+            picnum,
+            picnum,
+        )
     
     def getMaterialName(self, picnum):
         return "picnum%04d_%03d-%03d" % (picnum, self.getArtFileIndex(picnum), self.getArtFileNumber(picnum))
