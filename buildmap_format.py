@@ -31,6 +31,8 @@ from typing import BinaryIO, List
 
 from mathutils import Vector
 
+from . import game_tile_lookup
+
 log = logging.getLogger(__name__)
 
 
@@ -354,15 +356,6 @@ class BuildWall:
                 return self.wall.getName(useIndexInMap, prefix)
 
 class BuildSprite:
-    ## https://wiki.eduke32.com/wiki/Special_Tile_Reference_Guide
-    ## https://wiki.eduke32.com/wiki/Sector_effectors
-    ## https://wiki.eduke32.com/wiki/Tilenum
-    ## https://wiki.eduke32.com/wiki/Actor
-    BUILD_EFFECT_PICNUMS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    BLOOD_EFFECT_PICNUMS = [2072, 2077, 2331, 2332, 2519, 2520, 2521]  ## TODO Check for more
-    BUILD_AMMO_PICNUMS   = [21, 22, 23, 24, 25, 26, 27, 28, 29, 32, 37, 40, 41, 42, 44, 45, 46, 47, 49] ## TODO Check for Blood
-    BUILD_EQUIP_PICNUMS  = [51, 52, 53, 54, 55, 56, 57, 59, 60, 61, 100] ## TODO Check for Blood
-    
     def __init__(self):
         self.data = None
         self.bmap = None
@@ -371,6 +364,22 @@ class BuildSprite:
         self.yScal = None
         self.zScal = None
         self.angle = None
+        self.designation = None
+
+    def getDesignation(self):
+        if self.designation:
+            return self.designation
+        else:
+            lookup_dicts = [
+                (game_tile_lookup.DUKE_EFFECT_DICT if not self.bmap.is_blood_map else game_tile_lookup.BLOOD_EFFECT_DICT),
+                (game_tile_lookup.DUKE_WEAPON_DICT if not self.bmap.is_blood_map else game_tile_lookup.BLOOD_WEAPON_DICT),
+                (game_tile_lookup.DUKE_AMMO_DICT   if not self.bmap.is_blood_map else game_tile_lookup.BLOOD_AMMO_DICT),
+                (game_tile_lookup.DUKE_ITEM_DICT   if not self.bmap.is_blood_map else game_tile_lookup.BLOOD_ITEM_DICT),
+            ]
+            for lookup_dict in lookup_dicts:
+                if self.data.picnum in lookup_dict:
+                    return lookup_dict[self.data.picnum]
+            return None
     
     def isFlippedX(self):
         ## cstat bit 2: 1 = x-flipped, 0 = normal
@@ -404,15 +413,27 @@ class BuildSprite:
     
     def isEffectSprite(self):
         if self.bmap.is_blood_map:
-            return self.data.picnum in BuildSprite.BLOOD_EFFECT_PICNUMS
+            return self.data.picnum in game_tile_lookup.BLOOD_EFFECT_DICT.keys()
         else:
-            return self.data.picnum in BuildSprite.BUILD_EFFECT_PICNUMS
+            return self.data.picnum in game_tile_lookup.DUKE_EFFECT_DICT.keys()
     
-    def isGunAmmo(self):
-        return self.data.picnum in BuildSprite.BUILD_AMMO_PICNUMS
+    def isWeapon(self):
+        if self.bmap.is_blood_map:
+            return self.data.picnum in game_tile_lookup.BLOOD_WEAPON_DICT.keys()
+        else:
+            return self.data.picnum in game_tile_lookup.DUKE_WEAPON_DICT.keys()
+    
+    def isAmmo(self):
+        if self.bmap.is_blood_map:
+            return self.data.picnum in game_tile_lookup.BLOOD_AMMO_DICT.keys()
+        else:
+            return self.data.picnum in game_tile_lookup.DUKE_AMMO_DICT.keys()
     
     def isHealthEquipment(self):
-        return self.data.picnum in BuildSprite.BUILD_EQUIP_PICNUMS
+        if self.bmap.is_blood_map:
+            return self.data.picnum in game_tile_lookup.BLOOD_ITEM_DICT.keys()
+        else:
+            return self.data.picnum in game_tile_lookup.DUKE_ITEM_DICT.keys()
     
     def getScale(self, like_in_game=True):
         ## Return normalized Scale with 64 as 1
@@ -420,7 +441,7 @@ class BuildSprite:
             scale = ((self.data.yrepeat/64), (self.data.xrepeat/64), (self.data.xrepeat/64))
         else:
             scale = ((self.data.xrepeat/64), (self.data.xrepeat/64), (self.data.yrepeat/64))
-        if like_in_game and (self.isGunAmmo() or self.isHealthEquipment()):
+        if not self.bmap.is_blood_map and like_in_game and (self.isAmmo() or self.isHealthEquipment()):
             if self.data.picnum == 26:  ## HEAVYHBOMB
                 return (0.125, 0.125, 0.125)
             elif self.data.picnum == 40:  ## AMMO
@@ -434,7 +455,8 @@ class BuildSprite:
         return self.bmap.calculateShadeColor(self.data.shade)
     
     def getName(self, prefix=""):
-        return f"{prefix}Sprite_{self.spriteIndex:03d}"
+        name = f"{prefix}Sprite_{self.spriteIndex:03d}"
+        return f"{name}_{self.designation}" if self.designation else name
 
 
 
@@ -542,6 +564,7 @@ class BaseSpriteParser(IPartParser):
             new_sprite.yScal       = float(new_sprite.data.y) / 512
             new_sprite.zScal       = float(new_sprite.data.z) / 8192
             new_sprite.angle       = BuildMapBase.calculateAngle(new_sprite.data.ang)
+            new_sprite.designation = new_sprite.getDesignation()
             if 0 <= new_sprite.data.sectnum < new_sprite.bmap.data.numsectors:
                 new_sprite.bmap.sectors[new_sprite.data.sectnum].sprites.append(new_sprite)
             else:
