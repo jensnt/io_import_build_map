@@ -23,6 +23,7 @@
 import logging
 import os
 import re
+from typing import Optional, Tuple, Dict
 
 import bpy
 
@@ -38,10 +39,10 @@ class materialManager:
         self.userArtTextureFolder = None
         self.texFileMap = None
         self.userArtTexFileMap = None
-        self.materialDict = dict()
-        self.dimensionsDict = dict()
+        self.materialDict: Dict[int, Tuple[bpy.types.Material, Optional[str]]] = {}
+        self.dimensionsDict = {}
         self.picnumUserArtStart = 3584
-        self.existingMats = dict()
+        self.existingMats = {}
         self.reuseExistingMaterials = reuseExistingMaterials
         self.sampleClosestTexel = sampleClosestTexel
         self.shadeToVertexColors = shadeToVertexColors
@@ -64,7 +65,7 @@ class materialManager:
                 self.userArtTexFileMap = self.getFileMap(self.userArtTextureFolder)
     
     def getFileMap(self, path):
-        filemap = dict()
+        filemap = {}
         if (path is not None) and (os.path.exists(path)):
             for root, dirs, files in os.walk(path):
                 for filename in files:
@@ -137,7 +138,7 @@ class materialManager:
             ## Try to find the image node in the existing material
             for node in existingMat.node_tree.nodes:
                 if (node.type == 'TEX_IMAGE') and (node.name == 'Image Texture') and (node.image is not None):
-                    if imgFilePath is not None and (node.image.name == os.path.basename(imgFilePath)):
+                    if imgFilePath is not None and (node.image.name == os.path.basename(imgFilePath)):  ## TODO Check if this is ok. Maybe we should just get the image file path from the image node in this case.
                         self.dimensionsDict[picnum] = node.image.size
                         break
                     if regexDefault.match(node.image.name):
@@ -156,8 +157,8 @@ class materialManager:
                     nodeImg.image = bpy.data.images.load(imgFilePath)
                     self.dimensionsDict[picnum] = nodeImg.image.size
                     existingMat.node_tree.nodes.remove(nodeImg)  ## Delete the Node again
-            self.materialDict[picnum] = existingMat
-            return existingMat
+            self.materialDict[picnum] = (existingMat, imgFilePath)
+            return (existingMat, imgFilePath)
                 
         
         ## Create new material
@@ -262,14 +263,26 @@ class materialManager:
             # Create a new default image for this material since we don't have a texture file
             nodeImg.image = bpy.data.images.new(name=self.getTextureFileNameDefault(picnum), width=32, height=32, alpha=True)
         
-        self.materialDict[picnum] = newMat
-        return newMat
+        self.materialDict[picnum] = (newMat, imgFilePath)
+        return (newMat, imgFilePath)
 
     def getMaterial(self, picnum):
-        return self.materialDict.get(picnum) or self.__createMaterial(picnum)
+        (mat, imgFilePath) = self.materialDict.get(picnum, (None, None))
+        if mat:
+            return mat
+        else:
+            (mat, imgFilePath) = self.__createMaterial(picnum)
+            return mat
+    
+    def hasTexture(self, picnum) -> bool:
+        (mat, imgFilePath) = self.materialDict.get(picnum, (None, None))
+        if mat:
+            return bool(imgFilePath)
+        else:
+            (mat, imgFilePath) = self.__createMaterial(picnum)
+            return bool(imgFilePath)
     
     def getDimensions(self, picnum):
         if picnum not in self.materialDict:
             self.__createMaterial(picnum)
-            
         return self.dimensionsDict.get(picnum, (32, 32))
