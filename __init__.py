@@ -80,6 +80,16 @@ class ImportBuildMapPreferences(bpy.types.AddonPreferences):
             log.error(textureFolderInvalidText)
             self["userArtTextureFolder"] = textureFolderInvalidText
     
+    def getBloodTextureFolder(self):
+        return bpy.path.abspath(self.get("bloodTextureFolder", ''))
+    
+    def setBloodTextureFolder(self, value):
+        if os.path.isdir(value):
+            self["bloodTextureFolder"] = value
+        else:
+            log.error(textureFolderInvalidText)
+            self["bloodTextureFolder"] = textureFolderInvalidText
+    
     textureFolder : bpy.props.StringProperty(
         name = "Texture folder",
         default = "",
@@ -98,10 +108,20 @@ class ImportBuildMapPreferences(bpy.types.AddonPreferences):
         get = getUaTextureFolder,
         set = setUaTextureFolder)
     
+    bloodTextureFolder : bpy.props.StringProperty(
+        name = "Blood Texture folder",
+        default = "",
+        description = "Select a folder that contains your Blood textures. "
+                      "If left empty, the other folders will be used for Blood maps",
+        subtype = 'DIR_PATH',
+        get = getBloodTextureFolder,
+        set = setBloodTextureFolder)
+    
     def draw(self, context):
         layout = self.layout
         layout.prop(self, "textureFolder")
         layout.prop(self, "userArtTextureFolder")
+        layout.prop(self, "bloodTextureFolder")
 
 
 
@@ -188,13 +208,14 @@ class ImportBuildMap(bpy.types.Operator, ImportHelper):
     
     textureFolder = None
     userArtTextureFolder = None
+    bloodTextureFolder = None
     
     def execute(self, context):
         wm = context.window_manager
         wm.progress_begin(0, 1)
         wm.progress_update(0)
-        
         addon_prefs = context.preferences.addons[__name__].preferences
+        
         if addon_prefs.textureFolder == "":
             log.debug("The texture folder is not set in preferences.")
         elif addon_prefs.textureFolder == ImportBuildMapPreferences.textureFolderInvalidText:
@@ -212,7 +233,15 @@ class ImportBuildMap(bpy.types.Operator, ImportHelper):
                 log.debug("The user art texture folder is set to: %s" % addon_prefs.userArtTextureFolder)
                 self.userArtTextureFolder = addon_prefs.userArtTextureFolder
         
-        if (self.textureFolder is None) and (self.userArtTextureFolder is None):
+        if addon_prefs.bloodTextureFolder == "":
+            log.debug("The Blood texture folder is not set in preferences.")
+        elif addon_prefs.bloodTextureFolder == ImportBuildMapPreferences.textureFolderInvalidText:
+            log.debug("The Blood texture folder is set invalid in preferences.")
+        else:
+            log.debug("The Blood texture folder is set to: %s" % addon_prefs.bloodTextureFolder)
+            self.bloodTextureFolder = addon_prefs.bloodTextureFolder
+        
+        if (self.textureFolder is None) and (self.userArtTextureFolder is None) and (self.bloodTextureFolder is None):
             log.warning("No Texture Folder specified. Materials will be black. Specify in: Edit > Preferences > Add-ons > Import-Export: Import BUILD Map format")
             self.report({'WARNING'}, "No Texture Folder specified. Materials will be black. Specify in: Edit > Preferences > Add-ons > Import-Export: Import BUILD Map format")
         
@@ -228,7 +257,17 @@ class ImportBuildMap(bpy.types.Operator, ImportHelper):
         else:
             mapCollection = bpy.data.collections.new(os.path.basename(self.filepath))
             context.collection.children.link(mapCollection)
-            matManager = buildmap_materialmanager.materialManager(self.textureFolder, self.userArtTextureFolder, self.reuseExistingMaterials, self.sampleClosestTexel, self.shadeToVertexColors, self.proceduralMaterialEffects, self.useBackfaceCulling)
+            matManager = buildmap_materialmanager.materialManager(
+                bmap,
+                self.textureFolder,
+                self.userArtTextureFolder,
+                self.bloodTextureFolder,
+                self.reuseExistingMaterials,
+                self.sampleClosestTexel,
+                self.shadeToVertexColors,
+                self.proceduralMaterialEffects,
+                self.useBackfaceCulling
+            )
             prefix = f"{self.objectPrefix}_" if self.objectPrefix else ""
             importer = buildmap_importer.BuildMapImporter(bmap, matManager, context, mapCollection, prefix)
             importer.addSpawn()
