@@ -210,22 +210,41 @@ class BuildMapImporter:
     
     
     def addSprites(self, wallSpriteOffset, scaleSpritesLikeInGame=True, shadeToVertexColors=True):
-        spriteCollection = bpy.data.collections.new("%sSprites"%self.objectPrefix)
+        spriteCollection = bpy.data.collections.new(f"{self.objectPrefix}Sprites")
         self.mapCollection.children.link(spriteCollection)
-        colFaceSprites = bpy.data.collections.new("%sFaceSprites"%self.objectPrefix)
-        colWallSprites = bpy.data.collections.new("%sWallSprites"%self.objectPrefix)
-        colFloorSprites = bpy.data.collections.new("%sFloorSprites"%self.objectPrefix)
-        colEffectSprites = bpy.data.collections.new("%sEffectSprites"%self.objectPrefix)
+        colFaceSprites = bpy.data.collections.new(f"{self.objectPrefix}FaceSprites")
+        colWallSprites = bpy.data.collections.new(f"{self.objectPrefix}WallSprites")
+        colFloorSprites = bpy.data.collections.new(f"{self.objectPrefix}FloorSprites")
+        colEffectSprites = bpy.data.collections.new(f"{self.objectPrefix}EffectSprites")
+        colItemSprites = bpy.data.collections.new(f"{self.objectPrefix}Items")
+        colWeaponSprites = bpy.data.collections.new(f"{self.objectPrefix}Weapons")
+        colAmmoSprites = bpy.data.collections.new(f"{self.objectPrefix}Ammo")
+        colEnemySprites = bpy.data.collections.new(f"{self.objectPrefix}Enemies")
+        colNoTextureSprites = bpy.data.collections.new(f"{self.objectPrefix}NoTexture")
+        colNoTextureSprites.color_tag = 'COLOR_01'  # Red
         spriteCollection.children.link(colFaceSprites)
         spriteCollection.children.link(colWallSprites)
         spriteCollection.children.link(colFloorSprites)
         spriteCollection.children.link(colEffectSprites)
+        spriteCollection.children.link(colItemSprites)
+        spriteCollection.children.link(colWeaponSprites)
+        spriteCollection.children.link(colAmmoSprites)
+        spriteCollection.children.link(colEnemySprites)
+        spriteCollection.children.link(colNoTextureSprites)
         spriteCache = dict()
         
         for sprite in self.bmap.sprites:
             self.wm.progress_update(sprite.spriteIndex / self.bmap.data.numsprites)
             
-            if sprite.isEffectSprite():
+            if sprite.isEnemy():
+                collection = colEnemySprites
+            elif sprite.isWeapon():
+                collection = colWeaponSprites
+            elif sprite.isAmmo():
+                collection = colAmmoSprites
+            elif sprite.isHealthEquipment():
+                collection = colItemSprites
+            elif sprite.isEffectSprite():
                 collection = colEffectSprites
             elif sprite.isFaceSprite():
                 collection = colFaceSprites
@@ -283,7 +302,15 @@ class BuildMapImporter:
                 newObj.location.x += xoffset
                 newObj.location.y += yoffset
             
+            if not self.matManager.hasTexture(sprite.data.picnum):
+                colNoTextureSprites.objects.link(newObj)
+            
             self.saveSpriteCustomProps(sprite, newObj)
+        
+        ## Delete NoTexture Collection if it contains nothing
+        if len(colNoTextureSprites.objects) == 0:
+            spriteCollection.children.unlink(colNoTextureSprites)
+            bpy.data.collections.remove(colNoTextureSprites)
     
     
     
@@ -403,12 +430,12 @@ class BuildMapImporter:
     def addMapGeometry(self, splitSectors, splitWalls, splitSky, shadeToVertexColors=True):
         collectionMapGeo = bpy.data.collections.new("%sMap"%self.objectPrefix)
         self.mapCollection.children.link(collectionMapGeo)
-        if splitSky:
-            collectionSkyGeo = bpy.data.collections.new("%sSky"%self.objectPrefix)
-            self.mapCollection.children.link(collectionSkyGeo)
         if splitWalls:
             collectionWalls = bpy.data.collections.new("%sWalls"%self.objectPrefix)
             self.mapCollection.children.link(collectionWalls)
+        if splitSky:
+            collectionSkyGeo = bpy.data.collections.new("%sSky"%self.objectPrefix)
+            self.mapCollection.children.link(collectionSkyGeo)
         
         objCrtrMap = self.meshObjectCreator(self.matManager, name="%sMapGeometry"%self.objectPrefix, shadeToVertexColors=shadeToVertexColors)
         objCrtrSky = self.meshObjectCreator(self.matManager, name="%sMapGeometry_Sky"%self.objectPrefix, shadeToVertexColors=shadeToVertexColors)

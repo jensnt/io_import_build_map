@@ -375,6 +375,7 @@ class BuildSprite:
                 (game_tile_lookup.DUKE_WEAPON_DICT if not self.bmap.is_blood_map else game_tile_lookup.BLOOD_WEAPON_DICT),
                 (game_tile_lookup.DUKE_AMMO_DICT   if not self.bmap.is_blood_map else game_tile_lookup.BLOOD_AMMO_DICT),
                 (game_tile_lookup.DUKE_ITEM_DICT   if not self.bmap.is_blood_map else game_tile_lookup.BLOOD_ITEM_DICT),
+                (game_tile_lookup.DUKE_ENEMY_DICT  if not self.bmap.is_blood_map else game_tile_lookup.BLOOD_ENEMY_DICT),
             ]
             for lookup_dict in lookup_dicts:
                 if self.data.picnum in lookup_dict:
@@ -434,6 +435,12 @@ class BuildSprite:
             return self.data.picnum in game_tile_lookup.BLOOD_ITEM_DICT.keys()
         else:
             return self.data.picnum in game_tile_lookup.DUKE_ITEM_DICT.keys()
+    
+    def isEnemy(self):
+        if self.bmap.is_blood_map:
+            return self.data.picnum in game_tile_lookup.BLOOD_ENEMY_DICT.keys()
+        else:
+            return self.data.picnum in game_tile_lookup.DUKE_ENEMY_DICT.keys()
     
     def getScale(self, like_in_game=True):
         ## Return normalized Scale with 64 as 1
