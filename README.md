@@ -1,5 +1,5 @@
 # BUILD Map Importer - Blender Add-on
-This Blender Add-on lets you import maps in the BUILD format used by games such as Blood or Duke Nukem 3D.
+This Blender Add-on allows you to import maps in the BUILD format as used by games such as Blood or Duke Nukem 3D.
 
 ![E1L1](/images/e1l1.png)
 
@@ -22,7 +22,7 @@ Or you can use textures from a game if you own a copy. See: [Getting original te
 
 #### All textures need to be PNG or JPG files and use one of the following numbering formats as name:
 - As created by the Xtract tool: 056-002.png
-- BUILD tile number as name: 0568.png (up to 8 leading zeros allowed)
+- BUILD tile number as name: 0568.png or tile0568.png (up to 8 leading zeros allowed)
 
 ## Import Options
 
@@ -30,56 +30,59 @@ Or you can use textures from a game if you own a copy. See: [Getting original te
 
 The following Import Options are available:
 
-- Object Prefix
+- **Object Prefix**
   - This option specifies a prefix that will be used in the name of every imported object.
-- Split Sectors
+- **Split Sectors**
   - If enabled, the floor and ceiling of every sector will be split off into separate objects.  
     This is necessary to import custom properties from BUILD-Map structures for sectors.
-- Split Walls
+- **Split Walls**
   - If enabled, walls will be split off into separate objects.  
     This is necessary to import custom properties from BUILD-Map structures for walls.
-- Split Sky
+- **Split Sky**
   - If enabled, floors and ceilings with parallaxing enabled and associated walls will be split off into separate objects and sorted into the "Sky" collection.
-- Scale Sprites as in Game
+- **Scale Sprites as in Game**
   - Some special sprites (e.g. weapons and ammo) can have a different scale in game compared to map editors.  
     If this option is enabled, the importer will try to scale them as they appear in game.
-- Wall Sprite Offset
+- **Wall Sprite Offset**
   - Separate wall sprites from walls as specified by this offset.  
     This is useful to avoid Z-fighting.  
     A small offset like 0.01 m is enough in many cases.
-- Use Custom User Art
+- **Use Custom User Art**
   - If a Custom User Art texture folder is specified in the Add-on preferences you can use this option to enable or disable the usage of Custom User Art textures.  
     These textures will take preference over the normal Texture folder within the User Art Range.  
     The User Art Range starts with picnum 3584, which is "000-014.png".
-- Reuse Materials
+- **Reuse Materials**
   - If enabled, materials that already exist in the blend file, having the same name as this Add-on would create, will be reused instead of creating new ones.  
     If disabled, new materials will be created with a suffix.
-- Shade to Vertex Colors
+- **Shade to Vertex Colors**
   - Save Ceiling, Floor, Wall and Sprite Shade values as Vertex Color Attributes and use those in created Materials.
-- Pixel Shading
+- **Pixel Shading**
   - If enabled, textures will render with hard pixel edges instead of interpolation.
-- Procedural Material Effects
+- **Procedural Material Effects**
   - If enabled, additional shader nodes will be created in materials to add procedural details.  
     This works best with "Pixel Shading" disabled.
-- Use Back Face Culling
+- **Use Back Face Culling**
   - If enabled, use back-face culling in created materials to hide the back side of faces.
-- Heuristic Wall Search
+- **Heuristic Wall Search**
   - Try to find neighboring walls between sectors based on their position.  
     This might fix errors in the map but can also introduce errors.
-- Ignore Map Errors
+- **Ignore Map Errors**
   - If you encounter a corrupted map that gives you errors where for example the number of walls appears incorrect, you can try this option.  
     The importer will try to skip corrupted parts of the map.  
     No guarantee for success, though.
 
 ## Custom Properties
 
-One feature of this Add-on is that it can save the original map data for every sector, wall and sprite into custom properties of those objects.
-For Sectors and Walls you need to enable the Import options "Split Sectors" and "Split Walls" for this to work.
+One feature of this Add-on is that it can save the original map data for every sector, wall and sprite into custom properties of those objects.  
+For Sectors and Walls you need to enable the Import options **Split Sectors** and **Split Walls** for this to work.  
 This allows for debugging maps or for reusing those properties in Blender.
 
 ![Custom Properties](/images/custom-props.png)
 
 ## Getting original textures
+
+To extract textures from the original game, you must own a legitimate copy of the game.
+Textures extracted from the game are copyrighted material and may not be redistributed or shared.
 
 You can get textures from your original game as follows:
 
