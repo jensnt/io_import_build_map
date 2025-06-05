@@ -51,12 +51,12 @@ from .buildmap_format import BuildMapFactory as BuildMap
 from . import buildmap_importer
 from . import buildmap_materialmanager
 
-log = logging.getLogger(__name__)
+log = logging.getLogger(__package__)
 
 
 
 class ImportBuildMapPreferences(bpy.types.AddonPreferences):
-    bl_idname = __name__
+    bl_idname = __package__
 
     textureFolderInvalidText = "The selected texture folder is not a valid folder"
     
@@ -67,8 +67,8 @@ class ImportBuildMapPreferences(bpy.types.AddonPreferences):
         if os.path.isdir(value):
             self["textureFolder"] = value
         else:
-            log.error(textureFolderInvalidText)
-            self["textureFolder"] = textureFolderInvalidText
+            log.error(self.textureFolderInvalidText)
+            self["textureFolder"] = self.textureFolderInvalidText
     
     def getUaTextureFolder(self):
         return bpy.path.abspath(self.get("userArtTextureFolder", ''))
@@ -77,8 +77,8 @@ class ImportBuildMapPreferences(bpy.types.AddonPreferences):
         if os.path.isdir(value):
             self["userArtTextureFolder"] = value
         else:
-            log.error(textureFolderInvalidText)
-            self["userArtTextureFolder"] = textureFolderInvalidText
+            log.error(self.textureFolderInvalidText)
+            self["userArtTextureFolder"] = self.textureFolderInvalidText
     
     def getBloodTextureFolder(self):
         return bpy.path.abspath(self.get("bloodTextureFolder", ''))
@@ -87,8 +87,8 @@ class ImportBuildMapPreferences(bpy.types.AddonPreferences):
         if os.path.isdir(value):
             self["bloodTextureFolder"] = value
         else:
-            log.error(textureFolderInvalidText)
-            self["bloodTextureFolder"] = textureFolderInvalidText
+            log.error(self.textureFolderInvalidText)
+            self["bloodTextureFolder"] = self.textureFolderInvalidText
     
     textureFolder : bpy.props.StringProperty(
         name = "Texture folder",
@@ -214,7 +214,7 @@ class ImportBuildMap(bpy.types.Operator, ImportHelper):
         wm = context.window_manager
         wm.progress_begin(0, 1)
         wm.progress_update(0)
-        addon_prefs = context.preferences.addons[__name__].preferences
+        addon_prefs = context.preferences.addons[__package__].preferences
         
         if addon_prefs.textureFolder == "":
             log.debug("The texture folder is not set in preferences.")
