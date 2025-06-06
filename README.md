@@ -1,5 +1,6 @@
 # BUILD Map Importer - Blender Add-on
-This Blender Add-on allows you to import maps in the BUILD format as used by games such as Blood or Duke Nukem 3D.
+This Blender Add-on allows you to import maps in the BUILD format as used by games such as Blood or Duke Nukem 3D.  
+It’s a great way to explore countless community-made usermaps or breathe new life into your own creations.
 
 ![E1L1](/images/e1l1.png)
 
@@ -18,7 +19,7 @@ Then browse for the zip file you downloaded and click `Install Add-on`.
 4. The Add-on has it's own preferences where you can set the path to your texture folders.  
 Here you can use the texture folder from the file **example-map-and-textures.zip** you can find in the [latest Version](https://github.com/jensnt/io_import_build_map/releases/latest).  
 It contains a small set of free textures for the example map **SHOCK.MAP**.  
-Or you can use textures from a game if you own a copy. See: [Getting original textures](https://github.com/jensnt/io_import_build_map#getting-original-textures)
+Or you can use textures from a game if you own a copy. See: [Getting textures](https://github.com/jensnt/io_import_build_map#getting-original-textures)
 
 #### All textures need to be PNG or JPG files and use one of the following numbering formats as name:
 - As created by the Xtract tool: 056-002.png
@@ -79,10 +80,13 @@ This allows for debugging maps or for reusing those properties in Blender.
 
 ![Custom Properties](/images/custom-props.png)
 
-## Getting original textures
+## Getting textures
+You can use the textures from the file **example-map-and-textures.zip** you can find in the [latest Version](https://github.com/jensnt/io_import_build_map/releases/latest).  
+Another small free set of compatible textures is available in this project:  
+https://github.com/LukeKenTeam/LukeKen3D
 
-To extract textures from the original game, you must own a legitimate copy of the game.
-Textures extracted from the game are copyrighted material and may not be redistributed or shared.
+**If you want to use textures from the original game, you must own a legitimate copy of the game.
+Textures extracted from the game are copyrighted material and may not be redistributed or shared.**
 
 You can get textures from your original game as follows:
 
