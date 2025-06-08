@@ -2,7 +2,7 @@
 This Blender Add-on allows you to import maps in the BUILD format as used by games such as Blood or Duke Nukem 3D.  
 It’s a great way to explore countless community-made usermaps or breathe new life into your own creations.  
 
-You can find an example map and textures in the file **example-map-and-textures.zip** in the [latest Version on GitHub](https://github.com/jensnt/io_import_build_map/releases/latest)
+You can find an example map and textures in the file **example-map-and-textures.zip** in the [latest Release](https://github.com/jensnt/io_import_build_map/releases/latest)
 
 ![E1L1](/images/e1l1.png)
 
