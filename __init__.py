@@ -122,6 +122,12 @@ class ImportBuildMapPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "textureFolder")
         layout.prop(self, "userArtTextureFolder")
         layout.prop(self, "bloodTextureFolder")
+        layout.separator()
+        op = layout.operator(
+            "wm.url_open",
+            text="Get an example map and textures from the latest GitHub Release",
+            icon='URL')
+        op.url = "https://github.com/jensnt/io_import_build_map/releases/latest"
 
 
 
