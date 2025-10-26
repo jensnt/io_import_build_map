@@ -7,18 +7,30 @@ You can find an example map and textures in the file **example-map-and-textures.
 ![E1L1](/images/e1l1.png)
 
 
-## Installation
+## Installation from Blender Extensions Platform
+Starting with Blender 4.2 and newer you can install the Add-on directly from within Blender:
+- In Blender go to Edit -> Preferences -> Get Extensions
+- Allow Online Access if not done already.
+- Search for "BUILD Map Importer" and press "Install".
 
-To install the Add-on you need [Blender](https://www.blender.org/) in version 2.93 or later.
+Or:
+
+You can find the Add-on on the Blender Extensions Platform: [BUILD Map Importer](https://extensions.blender.org/add-ons/io-import-build-map/)
+
+Use the "Get Add-on" Button to install it. 
+
+## Installation from GitHub
+To install the Add-on from GitHub you need [Blender](https://www.blender.org/) in version 2.93 or later.
 
 1. Download the [latest Version](https://github.com/jensnt/io_import_build_map/releases/latest) from the Release Page. You need the file **io_import_build_map.zip**. 
 3. Install the Add-on by opening the Blender Preferences and clicking on `Install…` button at the top of the "Add-ons" section.  
 Then browse for the zip file you downloaded and click `Install Add-on`.
 5. The Add-on will not be enabled automatically. You have to enable it by checking it's check box in the Add-ons list before you can use it.
 
+## Setting Texture Folder Paths
 ![Preferences](/images/preferences.png)
 
-4. The Add-on has it's own preferences where you can set the path to your texture folders.  
+The Add-on has it's own preferences where you can set the path to your texture folders.  
 Here you can use the texture folder from the file **example-map-and-textures.zip** you can find in the [latest Version](https://github.com/jensnt/io_import_build_map/releases/latest).  
 It contains a small set of free textures for the example map **SHOCK.MAP**.  
 Or you can use textures from a game if you own a copy. See: [Getting textures](https://github.com/jensnt/io_import_build_map#getting-original-textures)
