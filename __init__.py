@@ -45,6 +45,7 @@ import logging
 import os
 
 import bpy
+from bpy.app import version as blender_version
 from bpy_extras.io_utils import ImportHelper
 
 from .buildmap_format import BuildMapFactory as BuildMap
@@ -60,63 +61,106 @@ class ImportBuildMapPreferences(bpy.types.AddonPreferences):
 
     textureFolderInvalidText = "The selected texture folder is not a valid folder"
     
-    def getTextureFolder(self):
+    def getTextureFolder_legacy(self):
         return bpy.path.abspath(self.get("textureFolder", ''))
     
-    def setTextureFolder(self, value):
+    def setTextureFolder_legacy(self, value):
         if os.path.isdir(value):
             self["textureFolder"] = value
         else:
             log.error(self.textureFolderInvalidText)
             self["textureFolder"] = self.textureFolderInvalidText
     
-    def getUaTextureFolder(self):
+    def getUaTextureFolder_legacy(self):
         return bpy.path.abspath(self.get("userArtTextureFolder", ''))
     
-    def setUaTextureFolder(self, value):
+    def setUaTextureFolder_legacy(self, value):
         if os.path.isdir(value):
             self["userArtTextureFolder"] = value
         else:
             log.error(self.textureFolderInvalidText)
             self["userArtTextureFolder"] = self.textureFolderInvalidText
     
-    def getBloodTextureFolder(self):
+    def getBloodTextureFolder_legacy(self):
         return bpy.path.abspath(self.get("bloodTextureFolder", ''))
     
-    def setBloodTextureFolder(self, value):
+    def setBloodTextureFolder_legacy(self, value):
         if os.path.isdir(value):
             self["bloodTextureFolder"] = value
         else:
             log.error(self.textureFolderInvalidText)
             self["bloodTextureFolder"] = self.textureFolderInvalidText
-    
-    textureFolder : bpy.props.StringProperty(
-        name = "Texture folder",
-        default = "",
-        description = "Select a folder that contains your textures",
-        subtype = 'DIR_PATH',
-        get = getTextureFolder,
-        set = setTextureFolder)
-    
-    userArtTextureFolder : bpy.props.StringProperty(
-        name = "Custom User Art Texture folder",
-        default = "",
-        description = "Select an optional folder for Custom User Art Textures. "
-                      "This folder will take preference over the normal Texture folder in the User Art Range. "
-                      "(The User Art Range starts with picnum 3584, which is 000-014.png)",
-        subtype = 'DIR_PATH',
-        get = getUaTextureFolder,
-        set = setUaTextureFolder)
-    
-    bloodTextureFolder : bpy.props.StringProperty(
-        name = "Blood Texture folder",
-        default = "",
-        description = "Select a folder that contains your Blood textures. "
-                      "If left empty, the other folders will be used for Blood maps",
-        subtype = 'DIR_PATH',
-        get = getBloodTextureFolder,
-        set = setBloodTextureFolder)
-    
+
+    # --- Blender >= 5.0: transforming Getter/Setter ---
+    # https://developer.blender.org/docs/release_notes/5.0/python_api/#new-get_transform-and-set_transform-bpyprops-accessors
+    # get_transform(self, current_stored_value, is_set) -> edited_value
+    # set_transform(self, user_value, current_stored_value, is_set) -> final_stored_value
+    def getTextureFolder_transform(self, current_value, is_set):
+        return bpy.path.abspath(current_value or "")
+
+    def setTextureFolder_transform(self, user_value, current_value, is_set):
+        path = bpy.path.abspath(user_value or "")
+        if (path and os.path.isdir(path)):
+            return path
+        else:
+            log.error(self.textureFolderInvalidText)
+            return self.textureFolderInvalidText
+
+    if blender_version >= (5, 0, 0):
+        textureFolder : bpy.props.StringProperty(
+            name = "Texture folder",
+            default = "",
+            description = "Select a folder that contains your textures",
+            subtype = 'DIR_PATH',
+            get_transform = getTextureFolder_transform,
+            set_transform = setTextureFolder_transform)
+        
+        userArtTextureFolder : bpy.props.StringProperty(
+            name = "Custom User Art Texture folder",
+            default = "",
+            description = "Select an optional folder for Custom User Art Textures. "
+                          "This folder will take preference over the normal Texture folder in the User Art Range. "
+                          "(The User Art Range starts with picnum 3584, which is 000-014.png)",
+            subtype = 'DIR_PATH',
+            get_transform = getTextureFolder_transform,
+            set_transform = setTextureFolder_transform)
+        
+        bloodTextureFolder : bpy.props.StringProperty(
+            name = "Blood Texture folder",
+            default = "",
+            description = "Select a folder that contains your Blood textures. "
+                          "If left empty, the other folders will be used for Blood maps",
+            subtype = 'DIR_PATH',
+            get_transform = getTextureFolder_transform,
+            set_transform = setTextureFolder_transform)
+    else:
+        textureFolder : bpy.props.StringProperty(
+            name = "Texture folder",
+            default = "",
+            description = "Select a folder that contains your textures",
+            subtype = 'DIR_PATH',
+            get = getTextureFolder_legacy,
+            set = setTextureFolder_legacy)
+        
+        userArtTextureFolder : bpy.props.StringProperty(
+            name = "Custom User Art Texture folder",
+            default = "",
+            description = "Select an optional folder for Custom User Art Textures. "
+                          "This folder will take preference over the normal Texture folder in the User Art Range. "
+                          "(The User Art Range starts with picnum 3584, which is 000-014.png)",
+            subtype = 'DIR_PATH',
+            get = getUaTextureFolder_legacy,
+            set = setUaTextureFolder_legacy)
+        
+        bloodTextureFolder : bpy.props.StringProperty(
+            name = "Blood Texture folder",
+            default = "",
+            description = "Select a folder that contains your Blood textures. "
+                          "If left empty, the other folders will be used for Blood maps",
+            subtype = 'DIR_PATH',
+            get = getBloodTextureFolder_legacy,
+            set = setBloodTextureFolder_legacy)
+        
     def draw(self, context):
         layout = self.layout
         layout.prop(self, "textureFolder")
