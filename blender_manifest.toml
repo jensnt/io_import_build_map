@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "io_import_build_map"
-version = "1.3.2"
+version = "1.3.3"
 name = "BUILD Map Importer"
 tagline = "Import BUILD Engine maps as used in Duke Nukem 3D, Blood, etc"
 maintainer = "Jens Neitzel"
