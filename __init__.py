@@ -305,6 +305,9 @@ class ImportBuildMap(bpy.types.Operator, ImportHelper):
             self.report({'ERROR'}, f"Parsing file failed! Exception: {e}")
             return {'CANCELLED'}
         else:
+            required_picnums = bmap.get_required_picnums()
+            log.debug("required_picnums count: %s" % len(required_picnums))
+            log.debug("required_picnums: %s" % required_picnums)
             mapCollection = bpy.data.collections.new(os.path.basename(self.filepath))
             context.collection.children.link(mapCollection)
             matManager = buildmap_materialmanager.materialManager(

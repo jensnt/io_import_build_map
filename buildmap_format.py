@@ -900,6 +900,19 @@ class BuildMapBase(ABC):
             g = -(0.000256*shade*shade) -(0.025906*shade) + (0.980335)
             b = -(0.000288*shade*shade) -(0.025329*shade) + (0.991496)
             return (r, g, b, 1.0)
+    
+    def get_required_picnums(self, include_overpic=True):
+        required_picnums = set()
+        for sect in self.getSectors():
+            required_picnums.add(int(sect.data.floorpicnum))
+            required_picnums.add(int(sect.data.ceilingpicnum))
+        for wall in self.getWalls():
+            required_picnums.add(int(wall.data.picnum))
+            if include_overpic:
+                required_picnums.add(int(wall.data.overpicnum))
+        for sprt in self.sprites:
+            required_picnums.add(int(sprt.data.picnum))
+        return sorted(n for n in required_picnums if n >= 0)
 
 
 
