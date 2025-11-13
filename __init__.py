@@ -51,6 +51,7 @@ from bpy_extras.io_utils import ImportHelper
 from .buildmap_format import BuildMapFactory as BuildMap
 from . import buildmap_importer
 from . import buildmap_materialmanager
+from . import texture_importer
 
 log = logging.getLogger(__package__)
 
@@ -306,8 +307,14 @@ class ImportBuildMap(bpy.types.Operator, ImportHelper):
             return {'CANCELLED'}
         else:
             required_picnums = bmap.get_required_picnums()
-            log.debug("required_picnums count: %s" % len(required_picnums))
-            log.debug("required_picnums: %s" % required_picnums)
+            required_picnums_count = len(required_picnums)
+            log.debug(f"required_picnums ({required_picnums_count}): {required_picnums}")
+            tex_importer = texture_importer.TextureImporter(folders=[self.userArtTextureFolder, self.textureFolder], parse_png_jpg_first=False)  ## TODO select folders based on map type (default or blood)
+            picnum_dict, remaining_picnums = tex_importer.run(required_picnums)
+            log.debug(f"remaining_picnums ({len(remaining_picnums)}): {remaining_picnums}")
+            log.debug(f"picnum_dict {len(picnum_dict)}: {picnum_dict}")
+            log.info(f"Found {len(picnum_dict)} textures of {required_picnums_count} required by {os.path.basename(self.filepath)}. Remaining: {len(remaining_picnums)}")
+            
             mapCollection = bpy.data.collections.new(os.path.basename(self.filepath))
             context.collection.children.link(mapCollection)
             matManager = buildmap_materialmanager.materialManager(
