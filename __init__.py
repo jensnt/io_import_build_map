@@ -319,6 +319,7 @@ class ImportBuildMap(bpy.types.Operator, ImportHelper):
             context.collection.children.link(mapCollection)
             matManager = buildmap_materialmanager.materialManager(
                 bmap,
+                picnum_dict,
                 self.textureFolder,
                 self.userArtTextureFolder,
                 self.bloodTextureFolder,

@@ -41,8 +41,10 @@ class FileInfo:
     file_or_archive_path: str
     ## length of the file or entry in bytes
     file_or_entry_length: int
+    ## Set path_is_image_file to True if the path is an image file that blender can load directly.
+    path_is_image_file: bool = False
     ## archive info in case file is contained in an archive
-    is_in_archive: bool = False
+    is_in_archive: bool = False  ## If this file is e.g. an .ART for that was searched for, this will not count as is_in_archive if it was found directly in the file system and not in e.g. an .GRP file.
     archive_entry_name:   Optional[str] = None
     archive_entry_offset: Optional[int] = None
     
@@ -57,6 +59,13 @@ class FileInfo:
         if self.is_in_archive and self.archive_entry_name:
             return self.archive_entry_name
         return os.path.basename(self.file_or_archive_path)
+    
+    ## Return the file path if it is an image file that Blender can load directly.
+    @property
+    def image_file_path(self) -> Optional[str]:
+        if self.path_is_image_file and self.file_or_archive_path:
+            return self.file_or_archive_path
+        return None
 
 @dataclass
 class PicnumEntry(FileInfo):
@@ -88,6 +97,8 @@ class FileWalker:
       2) Archives (.GRP) in the root directory (alphabetical), entries in order listed in archive
       3) Subfolders (alphabetical), each processed with the same rules
     """
+    
+    ## TODO Create an option if archives (e.g. .GRP) should be searched or not. But atm. the FileWalker is only used in cases where that would be the case.
 
     def __init__(self, root_folders: List[str], filename_pattern: str):
         self.root_folder_paths: List[Path] = [Path(p).resolve() for p in root_folders if p]
@@ -251,12 +262,14 @@ class FileWalker:
 
 
 class TextureImporter:
+    PICNUM_USER_ART_START = 3584
+    DEFAULT_TILE_DIM = (32, 32)
+    
     def __init__(self, folders: List[str], parse_png_jpg_first: bool = False, transparent_index: int = 255):
         self.folders = folders
         self.parse_png_jpg_first = parse_png_jpg_first
         self.transparent_index = transparent_index
         self.palette: Optional[List[Tuple[float, float, float]]] = None
-        self.picnumUserArtStart = 3584
 
     def run(self, required_picnums: List[int]) -> Tuple[Dict[int, PicnumEntry], Set[int]]:
         """
@@ -296,47 +309,66 @@ class TextureImporter:
         
         return picnum_dict, required
     
-    def getArtFileNumber(self, picnum: int) -> int:
+    @staticmethod
+    def getArtFileNumber(picnum: int) -> int:
         return int(picnum // 256)
     
-    def getArtFileIndex(self, picnum: int) -> int:
+    @staticmethod
+    def getArtFileIndex(picnum: int) -> int:
         return int(picnum % 256)
     
-    def getImgNameFromPicnum(self, picnum: int) -> str:
+    @staticmethod
+    def getImgName(picnum: int) -> str:
         return f"Tile_{picnum:04d}"
     
-    def _fillFileMap(self, folder: str, filemap_out: Dict[str, str]):
+    @staticmethod
+    def fillFileMap(folder: str, filemap_out: Dict[str, str]):
         if (folder is not None) and (os.path.exists(folder)) and (os.path.isdir(folder)):
             for root, dirs, files in os.walk(folder):
                 for filename in files:
                     if filename.lower().endswith((".png", ".jpg")):
                         filemap_out[filename.lower()] = os.path.join(root, filename)
     
-    def _getTextureFileNamePattern(self, picnum: int) -> str:
+    @staticmethod
+    def getTextureFileNamePattern(picnum: int) -> str:
         ## Match file names like: 056-002.png 56-2.png 000568.jpg 568.jpg tile0568.png
         return r"^(?:0{0,3}%d-0{0,3}%d\.(jpg|png)|0{0,8}%d\.(jpg|png)|tile%04d\.(jpg|png))$" % (
-            self.getArtFileIndex(picnum),
-            self.getArtFileNumber(picnum),
+            TextureImporter.getArtFileIndex(picnum),
+            TextureImporter.getArtFileNumber(picnum),
             picnum,
             picnum,
         )
     
-    def _getDictValueByKeyRegex(self, dictionary: Dict[str, str], regex: re.Pattern[str]) -> Optional[str]:
+    @staticmethod
+    def getDictValueByKeyRegex(dictionary: Dict[str, str], regex: re.Pattern[str]) -> Optional[str]:
         for key, value in dictionary.items():
             if regex.match(key):
                 return value
         return None
+    
+    @staticmethod
+    def tryLoadBlenderImage(imgFilePath: str, imageName: Optional[str] = None) -> Optional[bpy.types.Image]:
+        if not imgFilePath:
+            return None
+        try:
+            img = bpy.data.images.load(imgFilePath)
+        except Exception as e:
+            log.warning(f"Failed to load image {imgFilePath}: {e}")
+            return None
+        if imageName:
+            img.name = imageName
+        return img
     
     def _findPicnumFile(self, picnum: int, regexDefault: re.Pattern[str], texFileMap: Dict[str, str], allowUserArtFallback: bool = True) -> Optional[str]:
         imgFilePath = None
         if not isinstance(texFileMap, dict) or len(texFileMap) <= 0:
             return None
         ## Try to get User Art file with default filename
-        imgFilePath = self._getDictValueByKeyRegex(texFileMap, regexDefault)
-        if imgFilePath is None and (picnum >= self.picnumUserArtStart) and allowUserArtFallback:
+        imgFilePath = self.getDictValueByKeyRegex(texFileMap, regexDefault)
+        if imgFilePath is None and (picnum >= self.PICNUM_USER_ART_START) and allowUserArtFallback:
             ## A filename matching this regex does not specify the whole picnum and is only acceptable as fallback for User Art:
             regexUserArtFallback = re.compile(r"^0{0,2}%d-.{3}\.(jpg|png)$" % self.getArtFileIndex(picnum), re.IGNORECASE)
-            imgFilePath = self._getDictValueByKeyRegex(texFileMap, regexUserArtFallback)
+            imgFilePath = self.getDictValueByKeyRegex(texFileMap, regexUserArtFallback)
             log.debug("Tried to find User Art for picnum %d using fallback RegEx, resulting in: %s" % (picnum, imgFilePath))
         return imgFilePath
     
@@ -374,30 +406,26 @@ class TextureImporter:
         log.debug(f"Searching for .jpg/.png in folders: {folders_to_process}")
         texFileMap: Dict[str, str] = {}
         for folder in folders_to_process:
-            self._fillFileMap(folder, texFileMap)
+            self.fillFileMap(folder, texFileMap)
 
         for picnum in list(required):
-            picnum_regex = re.compile(self._getTextureFileNamePattern(picnum), re.IGNORECASE)
+            picnum_regex = re.compile(self.getTextureFileNamePattern(picnum), re.IGNORECASE)
             imgFilePath = self._findPicnumFile(picnum, picnum_regex, texFileMap, allowUserArtFallback=True)
-            if not imgFilePath or not os.path.exists(imgFilePath) or not os.path.isfile(imgFilePath):
-                continue
-            try:
-                img = bpy.data.images.load(imgFilePath)
-                img.name = self.getImgNameFromPicnum(picnum)
-            except Exception as e:
-                log.warning(f"Failed to load image {imgFilePath}: {e}")
+            img = self.tryLoadBlenderImage(imgFilePath, self.getImgName(picnum))
+            if not img:
                 continue
             
             entry = PicnumEntry(
                 tile_index = picnum,
                 image = img,
                 file_or_archive_path = imgFilePath,
+                path_is_image_file   = True,
                 file_or_entry_length = os.path.getsize(imgFilePath),
                 is_in_archive        = False,
                 art_picanm_available = False
             )
             
-            self._write_image_props(img, entry)
+            self.write_image_props(img, entry)
             picnum_dict_out[picnum] = entry
             required.discard(picnum)
             log.debug(f"Loaded PNG/JPG for picnum {picnum}: {entry.path_with_entry}")
@@ -413,6 +441,7 @@ class TextureImporter:
             info = walker.get_next()
             if not info:
                 break
+            info.path_is_image_file = False
             log.debug(f"Reading: {info.path_with_entry}")
             if not info.file_or_entry_length or info.file_or_entry_length <= 0:
                 log.warning(f"Skipping {'.GRP entry' if info.is_in_archive else '.ART file'} with invalid length! File: {info.path_with_entry}")
@@ -481,6 +510,7 @@ class TextureImporter:
                 tile_index = tile_index,
                 image = img,
                 file_or_archive_path = info.file_or_archive_path,
+                path_is_image_file   = False,
                 file_or_entry_length = info.file_or_entry_length,
                 is_in_archive        = info.is_in_archive,
                 archive_entry_name   = info.archive_entry_name,
@@ -493,7 +523,7 @@ class TextureImporter:
                 center_offset_x = cx,
                 center_offset_y = cy,
             )
-            self._write_image_props(img, entry)
+            self.write_image_props(img, entry)
             picnum_dict_out[tile_index] = entry
             required.discard(tile_index)
             parsed_tiles_from_art += 1
@@ -509,7 +539,7 @@ class TextureImporter:
         return frames, anim_type, xcenter, ycenter, anim_speed
     
     def _create_blender_image(self, picnum: int, w: int, h: int, pixels: bytes) -> bpy.types.Image:
-        img = bpy.data.images.new(self.getImgNameFromPicnum(picnum), width=w, height=h, alpha=True)
+        img = bpy.data.images.new(self.getImgName(picnum), width=w, height=h, alpha=True)
         if not self.palette:
             return img
         
@@ -527,10 +557,14 @@ class TextureImporter:
         #img.use_fake_user = True
         return img
     
-    def _write_image_props(self, img: bpy.types.Image, entry: PicnumEntry):
+    @staticmethod
+    def write_image_props(img: bpy.types.Image, entry: PicnumEntry):
         props = {
+            "schema_version": 1,
+            "tile_index": int(entry.tile_index or 0),
             "file_or_archive_path": entry.file_or_archive_path or "",
             "file_or_entry_length": int(entry.file_or_entry_length or 0),
+            "path_is_image_file":   bool(entry.path_is_image_file),
             "is_in_archive": bool(entry.is_in_archive),
             "archive_entry_name": entry.archive_entry_name or "",
             "archive_entry_offset": int(entry.archive_entry_offset or 0),
@@ -543,6 +577,61 @@ class TextureImporter:
             "center_offset_x": int(entry.center_offset_x),
             "center_offset_y": int(entry.center_offset_y),
         }
-        for k, v in props.items():
-            img[k] = v
+        img["build_tile_props"] = props
+    
+    @staticmethod
+    def get_picnum_entry_from_image(img: bpy.types.Image) -> Optional[PicnumEntry]:
+        ## Reconstruct a PicnumEntry from the custom properties stored on a Blender image.
+        
+        if img is None:
+            return None
+        
+        props = img.get("build_tile_props", None)
+        if props is None:
+            return None
 
+        def get_int(key: str, default: Optional[int] = None) -> Optional[int]:
+            val = props.get(key, default)
+            try:
+                # allow None as "no value"
+                return int(val) if val is not None else default
+            except Exception:
+                return default
+
+        def get_bool(key: str, default: bool = False) -> bool:
+            val = props.get(key, default)
+            try:
+                return bool(val)
+            except Exception:
+                return default
+
+        def get_str(key: str, default: str = "") -> str:
+            val = props.get(key, default)
+            if (val is None) or (val == ""):
+                return default
+            return str(val)
+
+        schema_version = get_int("schema_version", 1)
+        if schema_version != 1:
+            log.debug(f"Unexpected build_tile_props schema_version {schema_version} on image '{img.name}'")
+        
+        entry = PicnumEntry(
+            tile_index           = get_int("tile_index", None),
+            image                = img,
+            file_or_archive_path = get_str("file_or_archive_path", ""),
+            file_or_entry_length = get_int("file_or_entry_length", 0),
+            path_is_image_file   = get_bool("path_is_image_file", False),
+            is_in_archive        = get_bool("is_in_archive", False),
+            archive_entry_name   = get_str("archive_entry_name", None),
+            archive_entry_offset = get_int("archive_entry_offset", None),
+            art_byte_offset      = get_int("art_byte_offset", None),
+            def_filepath         = get_str("def_filepath", None),
+            art_picanm_available = get_bool("art_picanm_available", False),
+            anim_type            = get_int("anim_type", 0),
+            anim_speed           = get_int("anim_speed", 0),
+            anim_framecount      = get_int("anim_framecount", 0),
+            center_offset_x      = get_int("center_offset_x", 0),
+            center_offset_y      = get_int("center_offset_y", 0),
+        )
+
+        return entry

@@ -27,21 +27,23 @@ from typing import Optional, Tuple, Dict
 
 import bpy
 
+from .texture_importer import TextureImporter, PicnumEntry
+
 log = logging.getLogger(__name__)
 
 
 
 class materialManager:
-    def __init__(self, bmap, texFolder, userArtTexFolder, bloodTexFolder, reuseExistingMaterials=True, sampleClosestTexel=True, shadeToVertexColors=True, proceduralMaterialEffects=False, useBackfaceCulling=False):
+    def __init__(self, bmap, picnum_dict, texFolder, userArtTexFolder, bloodTexFolder, reuseExistingMaterials=True, sampleClosestTexel=True, shadeToVertexColors=True, proceduralMaterialEffects=False, useBackfaceCulling=False):
         log.debug("materialManager init with texFolder: %s  userArtTexFolder: %s  sampleClosestTexel: %s  shadeToVertexColors: %s" % (texFolder, userArtTexFolder, sampleClosestTexel, shadeToVertexColors))
         self.blversion = bpy.app.version
+        self.picnum_dict = picnum_dict
         self.textureFolder = None
         self.userArtTextureFolder = None
-        self.texFileMap = None
-        self.userArtTexFileMap = None
-        self.materialDict: Dict[int, Tuple[bpy.types.Material, Optional[str]]] = {}
+        self.texFileMap: Dict[str, str] = {}
+        self.userArtTexFileMap: Dict[str, str] = {}
+        self.materialDict: Dict[int, Tuple[bpy.types.Material, Optional[PicnumEntry]]] = {}
         self.dimensionsDict = {}
-        self.picnumUserArtStart = 3584
         self.existingMats = {}
         self.reuseExistingMaterials = reuseExistingMaterials
         self.sampleClosestTexel = sampleClosestTexel
@@ -50,116 +52,147 @@ class materialManager:
         self.useBackfaceCulling = useBackfaceCulling
         
         for existingMat in bpy.data.materials:
+            if not existingMat.use_nodes or existingMat.node_tree is None:
+                log.debug(f"Material '{existingMat.name}' does not use nodes. Not adding to existing materials List.")
+                continue
             self.existingMats[existingMat.name] = existingMat
         
         if bmap.is_blood_map and (bloodTexFolder is not None) and (os.path.exists(bloodTexFolder)):
             self.textureFolder = bloodTexFolder
-            self.texFileMap = self.getFileMap(self.textureFolder)
+            TextureImporter.fillFileMap(self.textureFolder, self.texFileMap)
             log.debug(f"{self.__class__.__name__} - Using Blood Texture Folder: {self.textureFolder}")
         else:
             if (texFolder is not None) and (os.path.exists(texFolder)):
                 self.textureFolder = texFolder
-                self.texFileMap = self.getFileMap(self.textureFolder)
+                TextureImporter.fillFileMap(self.textureFolder, self.texFileMap)
             if (userArtTexFolder is not None) and (os.path.exists(userArtTexFolder)):
                 self.userArtTextureFolder = userArtTexFolder
-                self.userArtTexFileMap = self.getFileMap(self.userArtTextureFolder)
-    
-    def getFileMap(self, path):
-        filemap = {}
-        if (path is not None) and (os.path.exists(path)):
-            for root, dirs, files in os.walk(path):
-                for filename in files:
-                    if filename.lower().endswith(".png") or filename.lower().endswith(".jpg"):
-                        filemap[filename] = os.path.join(root, filename)
-        return filemap
-
-    def getArtFileNumber(self, picnum):
-        return int(picnum // 256)
-    
-    def getArtFileIndex(self, picnum):
-        return int(picnum % 256)
+                TextureImporter.fillFileMap(self.userArtTextureFolder, self.userArtTexFileMap)
     
     def getTextureFileNameDefault(self, picnum):
         return "%04d.png" % picnum
     
-    def getTextureFileNamePattern(self, picnum):
-        ## Match file names like: 056-002.png 56-2.png 000568.jpg 568.jpg tile0568.png
-        return r"^(?:0{0,3}%d-0{0,3}%d\.(jpg|png)|0{0,8}%d\.(jpg|png)|tile%04d\.(jpg|png))$" % (
-            self.getArtFileIndex(picnum),
-            self.getArtFileNumber(picnum),
-            picnum,
-            picnum,
-        )
-    
     def getMaterialName(self, picnum):
-        return "picnum%04d_%03d-%03d" % (picnum, self.getArtFileIndex(picnum), self.getArtFileNumber(picnum))
-        
-    def getDictValueByKeyRegex(self, dictionary, regex):
-        for key, value in dictionary.items():
-            if regex.match(key):
-                return value
-        return None
+        return "picnum%04d_%03d-%03d" % (picnum, TextureImporter.getArtFileIndex(picnum), TextureImporter.getArtFileNumber(picnum))
     
     def findPicnumFile(self, picnum, regexDefault, texFileMap, userArtTexFileMap=None):
         imgFilePath = None
         
         ## First search for User Art if in User Art range and available
-        if (picnum >= self.picnumUserArtStart) and isinstance(userArtTexFileMap, dict) and (len(userArtTexFileMap) > 0):
+        if (picnum >= TextureImporter.PICNUM_USER_ART_START) and isinstance(userArtTexFileMap, dict) and (len(userArtTexFileMap) > 0):
             ## Try to get User Art file with default filename
-            imgFilePath = self.getDictValueByKeyRegex(userArtTexFileMap, regexDefault)
+            imgFilePath = TextureImporter.getDictValueByKeyRegex(userArtTexFileMap, regexDefault)
             if imgFilePath is None:
                 ## A filename matching this regex does not specify the whole picnum and is only acceptable as fallback for User Art:
-                regexUserArtFallback = re.compile(r"^0{0,2}%d-.{3}\.(jpg|png)$" % self.getArtFileIndex(picnum), re.IGNORECASE)
-                imgFilePath = self.getDictValueByKeyRegex(userArtTexFileMap, regexUserArtFallback)
+                regexUserArtFallback = re.compile(r"^0{0,2}%d-.{3}\.(jpg|png)$" % TextureImporter.getArtFileIndex(picnum), re.IGNORECASE)
+                imgFilePath = TextureImporter.getDictValueByKeyRegex(userArtTexFileMap, regexUserArtFallback)
                 log.debug("Tried to find User Art for picnum %d using fallback RegEx, resulting in: %s" % (picnum, imgFilePath))
         
         ## If we could not get any User Art file, search the normal file map
         if (imgFilePath is None) and isinstance(texFileMap, dict) and (len(texFileMap) > 0):
-            imgFilePath = self.getDictValueByKeyRegex(texFileMap, regexDefault)
+            imgFilePath = TextureImporter.getDictValueByKeyRegex(texFileMap, regexDefault)
         
         ## If we could still not get any image file, search the User Art file map again in the full picnum range
         ## Normally the User Art folder should only contain textures in the range: picnum >= 3584
         ## But the user might have put textures outside that range there anyway...
         if (imgFilePath is None) and isinstance(userArtTexFileMap, dict) and (len(userArtTexFileMap) > 0):
-            imgFilePath = self.getDictValueByKeyRegex(userArtTexFileMap, regexDefault)
+            imgFilePath = TextureImporter.getDictValueByKeyRegex(userArtTexFileMap, regexDefault)
             if imgFilePath is not None:
                 log.debug("Non User Art texture found in User Art folder: %s" % imgFilePath)
         
         return imgFilePath
     
-    def __createMaterial(self, picnum):
+    def __createMaterial(self, picnum) -> Tuple[bpy.types.Material, Optional[PicnumEntry]]:
         matName = self.getMaterialName(picnum)
         existingMat = self.existingMats.get(matName, None)
-        regexDefault = re.compile(self.getTextureFileNamePattern(picnum), re.IGNORECASE)
-        imgFilePath = self.findPicnumFile(picnum, regexDefault, self.texFileMap, self.userArtTexFileMap)
+        regexDefault = re.compile(TextureImporter.getTextureFileNamePattern(picnum), re.IGNORECASE)
         
-        ## Try reusing an existing material
+        picnum_entry = self.picnum_dict.get(picnum, None)
+        if not picnum_entry:
+            log.debug(f"No picnum_entry for picnum {picnum} found in picnum_dict! Trying with legacy code.")
+            img_path_legacy = self.findPicnumFile(picnum, regexDefault, self.texFileMap, self.userArtTexFileMap)
+            img_legacy = None
+            file_valid = False
+            file_size = 0
+            if img_path_legacy and os.path.exists(img_path_legacy) and os.path.isfile(img_path_legacy):
+                ## Load the image here already, even if we might still be reusing an existing material so this image might not be used.
+                ## We should normally not get here anyway if the new texture_importer works correctly and images loaded by the texture_importer might go unused as well in the same way anyway.
+                img_legacy = TextureImporter.tryLoadBlenderImage(img_path_legacy, TextureImporter.getImgName(picnum))
+                if img_legacy is not None:
+                    file_valid = True
+                    file_size = os.path.getsize(img_path_legacy)
+                    log.debug(f"Legacy Code found image! Path: {img_path_legacy}")
+                else:
+                    img_path_legacy = None  ## Disregard this file path if loading it was unsuccessful.
+            ## Generate a PicnumEntry in any case for the following code to work with and to assign to this material, even if no valid file was found.
+            picnum_entry = PicnumEntry(
+                tile_index = picnum,
+                image = img_legacy,
+                file_or_archive_path = img_path_legacy,
+                path_is_image_file   = file_valid,
+                file_or_entry_length = file_size,
+                is_in_archive        = False,
+                art_picanm_available = False
+            )
+            if img_legacy is not None:
+                TextureImporter.write_image_props(img_legacy, picnum_entry)
+        
+        
+        ## Reuse an existing material
         if self.reuseExistingMaterials and (existingMat is not None):
-            ## Try to find the image node in the existing material
+            ## Set default values to use if nothing better can be found in next steps
+            reused_picnum_entry = picnum_entry
+            reused_size = TextureImporter.DEFAULT_TILE_DIM
+            if reused_picnum_entry.image is not None:
+                reused_size = reused_picnum_entry.image.size
+            
+            ## Get a list of possible names to check
+            image_names_to_check = [TextureImporter.getImgName(picnum), self.getTextureFileNameDefault(picnum)]
+            if picnum_entry.image_file_path is not None:
+                image_names_to_check.append(os.path.basename(picnum_entry.image_file_path))
+            if picnum_entry.image is not None:
+                image_names_to_check.append(picnum_entry.image.name)
+                if picnum_entry.image.filepath:
+                    image_names_to_check.append(os.path.basename(picnum_entry.image.filepath))
+            log.debug(f"Checking in existing material {existingMat.name} for names: {image_names_to_check}")
+            
+            ## Try to find an image node in the existing material with matching image file path or name to get the dimensions and PicnumEntry properties from.
+            existing_img = None
             for node in existingMat.node_tree.nodes:
-                if (node.type == 'TEX_IMAGE') and (node.name == 'Image Texture') and (node.image is not None):
-                    if imgFilePath is not None and (node.image.name == os.path.basename(imgFilePath)):  ## TODO Check if this is ok. Maybe we should just get the image file path from the image node in this case.
-                        self.dimensionsDict[picnum] = node.image.size
+                img = getattr(node, "image", None)
+                if (node.type == 'TEX_IMAGE') and (img is not None):
+                    img_file_name = os.path.basename(img.filepath) if img.filepath else None
+                    if ((img_file_name is not None) and (img_file_name in image_names_to_check)) or (img.name in image_names_to_check):
+                        existing_img = img
                         break
-                    if regexDefault.match(node.image.name):
-                        self.dimensionsDict[picnum] = node.image.size
+                    if ((img_file_name is not None) and regexDefault.match(img_file_name)) or regexDefault.match(img.name):
+                        existing_img = img
                         log.debug("Image Node in existing material %s found using regex." % matName)
                         break
+            
+            if existing_img is not None:
+                reused_size = existing_img.size
+                recovered_picnum_entry = TextureImporter.get_picnum_entry_from_image(existing_img)
+                if recovered_picnum_entry is not None:
+                    reused_picnum_entry = recovered_picnum_entry
+                reused_picnum_entry.image = existing_img
             else:
-                log.debug("Found existing material %s but no image node! Known imgFilePath: %s" % (matName, imgFilePath))
-                if imgFilePath is not None:
-                    ## In case no image node is found but we know the path of the texture,
-                    ## just generate one to get the size from it. It can be deleted again afterwards.
-                    nodeImg = existingMat.node_tree.nodes.new(type='ShaderNodeTexImage')
-                    nodeImg.location = (-300, 625)
-                    nodeImg.interpolation = 'Closest' if self.sampleClosestTexel else 'Smart'
-
-                    nodeImg.image = bpy.data.images.load(imgFilePath)
-                    self.dimensionsDict[picnum] = nodeImg.image.size
-                    existingMat.node_tree.nodes.remove(nodeImg)  ## Delete the Node again
-            self.materialDict[picnum] = (existingMat, imgFilePath)
-            return (existingMat, imgFilePath)
-                
+                log.debug(f"Found existing material \"{matName}\" but no matching image node! file_or_archive_path: {picnum_entry.file_or_archive_path}")
+            
+            self.dimensionsDict[picnum] = reused_size
+            self.materialDict[picnum] = (existingMat, reused_picnum_entry)
+            return (existingMat, reused_picnum_entry)
+        
+        
+        ## Make sure we have at least a fallback image to work with if no texture is available
+        if picnum_entry.image is None:
+            picnum_entry.image = bpy.data.images.new(
+                name = TextureImporter.getImgName(picnum),
+                width = TextureImporter.DEFAULT_TILE_DIM[0],
+                height = TextureImporter.DEFAULT_TILE_DIM[1],
+                alpha = True,
+            )
+        
         
         ## Create new material
         newMat = bpy.data.materials.new(name=matName)
@@ -179,6 +212,7 @@ class materialManager:
         newMat.node_tree.links.new(nodePbr.outputs["BSDF"], nodeMatOut.inputs["Surface"])
         
         nodeImg = newMat.node_tree.nodes.new(type='ShaderNodeTexImage')
+        nodeImg.image = picnum_entry.image
         nodeImg.location = (-400, 325)
         nodeImg.interpolation = 'Closest' if self.sampleClosestTexel else 'Smart'
         newMat.node_tree.links.new(nodeImg.outputs["Color"], nodePbr.inputs["Base Color"])
@@ -256,33 +290,25 @@ class materialManager:
                 newMat.node_tree.links.new(nodeImg.outputs["Color"], nodeMix.inputs["Color1"])
             newMat.node_tree.links.new(nodeMix.outputs["Color"], nodePbr.inputs["Base Color"])
         
-        if imgFilePath is not None:
-            nodeImg.image = bpy.data.images.load(imgFilePath)
-            self.dimensionsDict[picnum] = nodeImg.image.size
-        else:
-            # Create a new default image for this material since we don't have a texture file
-            nodeImg.image = bpy.data.images.new(name=self.getTextureFileNameDefault(picnum), width=32, height=32, alpha=True)
-        
-        self.materialDict[picnum] = (newMat, imgFilePath)
-        return (newMat, imgFilePath)
+        self.dimensionsDict[picnum] = picnum_entry.image.size
+        self.materialDict[picnum] = (newMat, picnum_entry)
+        return (newMat, picnum_entry)
 
     def getMaterial(self, picnum):
-        (mat, imgFilePath) = self.materialDict.get(picnum, (None, None))
+        (mat, picnum_entry) = self.materialDict.get(picnum, (None, None))
         if mat:
             return mat
         else:
-            (mat, imgFilePath) = self.__createMaterial(picnum)
+            (mat, picnum_entry) = self.__createMaterial(picnum)
             return mat
     
     def hasTexture(self, picnum) -> bool:
-        (mat, imgFilePath) = self.materialDict.get(picnum, (None, None))
-        if mat:
-            return bool(imgFilePath)
-        else:
-            (mat, imgFilePath) = self.__createMaterial(picnum)
-            return bool(imgFilePath)
+        (mat, picnum_entry) = self.materialDict.get(picnum, (None, None))
+        if not mat:
+            (mat, picnum_entry) = self.__createMaterial(picnum)
+        return bool(picnum_entry and picnum_entry.image is not None)
     
     def getDimensions(self, picnum):
         if picnum not in self.materialDict:
             self.__createMaterial(picnum)
-        return self.dimensionsDict.get(picnum, (32, 32))
+        return self.dimensionsDict.get(picnum, TextureImporter.DEFAULT_TILE_DIM)
