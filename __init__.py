@@ -47,6 +47,7 @@ import os
 import bpy
 from bpy.app import version as blender_version
 from bpy_extras.io_utils import ImportHelper
+from typing import Optional
 
 from .buildmap_format import BuildMapFactory as BuildMap
 from . import buildmap_importer
@@ -91,6 +92,16 @@ class ImportBuildMapPreferences(bpy.types.AddonPreferences):
         else:
             log.error(self.textureFolderInvalidText)
             self["bloodTextureFolder"] = self.textureFolderInvalidText
+    
+    def getBloodUaTextureFolder_legacy(self):
+        return bpy.path.abspath(self.get("bloodUserArtTextureFolder", ''))
+    
+    def setBloodUaTextureFolder_legacy(self, value):
+        if os.path.isdir(value):
+            self["bloodUserArtTextureFolder"] = value
+        else:
+            log.error(self.textureFolderInvalidText)
+            self["bloodUserArtTextureFolder"] = self.textureFolderInvalidText
 
     # --- Blender >= 5.0: transforming Getter/Setter ---
     # https://developer.blender.org/docs/release_notes/5.0/python_api/#new-get_transform-and-set_transform-bpyprops-accessors
@@ -109,64 +120,81 @@ class ImportBuildMapPreferences(bpy.types.AddonPreferences):
 
     if blender_version >= (5, 0, 0):
         textureFolder : bpy.props.StringProperty(
-            name = "Texture folder",
+            name = "Game/Texture folder",
             default = "",
-            description = "Select a folder that contains your textures",
+            description = "Select a folder that contains your game or textures",
             subtype = 'DIR_PATH',
             get_transform = getTextureFolder_transform,
             set_transform = setTextureFolder_transform)
         
         userArtTextureFolder : bpy.props.StringProperty(
-            name = "Custom User Art Texture folder",
+            name = "Priority/Mod Texture folder",
             default = "",
-            description = "Select an optional folder for Custom User Art Textures. "
-                          "This folder will take preference over the normal Texture folder in the User Art Range. "
-                          "(The User Art Range starts with picnum 3584, which is 000-014.png)",
+            description = "Select an optional folder for Custom/Mod Textures. "
+                          "This folder will take priority over the normal Texture folder",
             subtype = 'DIR_PATH',
             get_transform = getTextureFolder_transform,
             set_transform = setTextureFolder_transform)
         
         bloodTextureFolder : bpy.props.StringProperty(
-            name = "Blood Texture folder",
+            name = "Blood - Game/Texture folder",
             default = "",
-            description = "Select a folder that contains your Blood textures. "
+            description = "Select a folder that contains your Blood game or textures. "
                           "If left empty, the other folders will be used for Blood maps",
+            subtype = 'DIR_PATH',
+            get_transform = getTextureFolder_transform,
+            set_transform = setTextureFolder_transform)
+        
+        bloodUserArtTextureFolder : bpy.props.StringProperty(
+            name = "Blood - Priority/Mod Texture folder",
+            default = "",
+            description = "Select an optional folder for Custom/Mod Blood Textures. "
+                          "This folder will take priority over the normal Blood Texture folder",
             subtype = 'DIR_PATH',
             get_transform = getTextureFolder_transform,
             set_transform = setTextureFolder_transform)
     else:
         textureFolder : bpy.props.StringProperty(
-            name = "Texture folder",
+            name = "Game/Texture folder",
             default = "",
-            description = "Select a folder that contains your textures",
+            description = "Select a folder that contains your game or textures",
             subtype = 'DIR_PATH',
             get = getTextureFolder_legacy,
             set = setTextureFolder_legacy)
         
         userArtTextureFolder : bpy.props.StringProperty(
-            name = "Custom User Art Texture folder",
+            name = "Priority/Mod Texture folder",
             default = "",
-            description = "Select an optional folder for Custom User Art Textures. "
-                          "This folder will take preference over the normal Texture folder in the User Art Range. "
-                          "(The User Art Range starts with picnum 3584, which is 000-014.png)",
+            description = "Select an optional folder for Custom/Mod Textures. "
+                          "This folder will take priority over the normal Texture folder",
             subtype = 'DIR_PATH',
             get = getUaTextureFolder_legacy,
             set = setUaTextureFolder_legacy)
         
         bloodTextureFolder : bpy.props.StringProperty(
-            name = "Blood Texture folder",
+            name = "Blood - Game/Texture folder",
             default = "",
-            description = "Select a folder that contains your Blood textures. "
+            description = "Select a folder that contains your Blood game or textures. "
                           "If left empty, the other folders will be used for Blood maps",
             subtype = 'DIR_PATH',
             get = getBloodTextureFolder_legacy,
             set = setBloodTextureFolder_legacy)
+        
+        bloodUserArtTextureFolder : bpy.props.StringProperty(
+            name = "Blood - Priority/Mod Texture folder",
+            default = "",
+            description = "Select an optional folder for Custom/Mod Blood Textures. "
+                          "This folder will take priority over the normal Blood Texture folder",
+            subtype = 'DIR_PATH',
+            get = getBloodUaTextureFolder_legacy,
+            set = setBloodUaTextureFolder_legacy)
         
     def draw(self, context):
         layout = self.layout
         layout.prop(self, "textureFolder")
         layout.prop(self, "userArtTextureFolder")
         layout.prop(self, "bloodTextureFolder")
+        layout.prop(self, "bloodUserArtTextureFolder")
         layout.separator()
         op = layout.operator(
             "wm.url_open",
@@ -218,10 +246,9 @@ class ImportBuildMap(bpy.types.Operator, ImportHelper):
         default = 0,
         unit = 'LENGTH')
     useUserArt : bpy.props.BoolProperty(
-        name="Use Custom User Art",
-        description = ("If a Custom User Art texture folder is specified in the Add-on preferences you can use this option to enable or disable the usage of Custom User Art textures.\n"
-                       "These textures will take preference over the normal Texture folder within the User Art Range.\n"
-                       "The User Art Range starts with picnum 3584, which is \"000-014.png\""),
+        name="Use Priority/Mod Textures",
+        description = ("If a Priority/Mod texture folder is specified in the Add-on preferences you can use this option to enable or disable the usage of Priority/Mod textures.\n"
+                       "These textures will take priority over the normal Texture folder"),
         default = True)
     reuseExistingMaterials : bpy.props.BoolProperty(
         name="Reuse Materials",
@@ -257,44 +284,26 @@ class ImportBuildMap(bpy.types.Operator, ImportHelper):
                        "No guarantee for success, though"),
         default = False)
     
-    textureFolder = None
-    userArtTextureFolder = None
-    bloodTextureFolder = None
+    selectedTextureFolder = None
+    selectedUserArtTextureFolder = None
+    
+    def _get_texture_folder(self, prefs_textureFolder: str, folder_name: str = "") -> Optional[str]:
+        if len(folder_name) > 0:
+            folder_name += " "
+        if (prefs_textureFolder is None) or (prefs_textureFolder == ""):
+            log.debug(f"The {folder_name}texture folder is not set in preferences.")
+            return None
+        if prefs_textureFolder == ImportBuildMapPreferences.textureFolderInvalidText:
+            log.debug(f"The {folder_name}texture folder is set invalid in preferences.")
+            return None
+        log.debug(f"The {folder_name}texture folder is set to: %s" % prefs_textureFolder)
+        return prefs_textureFolder
     
     def execute(self, context):
         wm = context.window_manager
         wm.progress_begin(0, 1)
         wm.progress_update(0)
         addon_prefs = context.preferences.addons[__package__].preferences
-        
-        if addon_prefs.textureFolder == "":
-            log.debug("The texture folder is not set in preferences.")
-        elif addon_prefs.textureFolder == ImportBuildMapPreferences.textureFolderInvalidText:
-            log.debug("The texture folder is set invalid in preferences.")
-        else:
-            log.debug("The texture folder is set to: %s" % addon_prefs.textureFolder)
-            self.textureFolder = addon_prefs.textureFolder
-        
-        if self.useUserArt:
-            if addon_prefs.userArtTextureFolder == "":
-                log.debug("The user art texture folder is not set in preferences.")
-            elif addon_prefs.userArtTextureFolder == ImportBuildMapPreferences.textureFolderInvalidText:
-                log.debug("The user art texture folder is set invalid in preferences.")
-            else:
-                log.debug("The user art texture folder is set to: %s" % addon_prefs.userArtTextureFolder)
-                self.userArtTextureFolder = addon_prefs.userArtTextureFolder
-        
-        if addon_prefs.bloodTextureFolder == "":
-            log.debug("The Blood texture folder is not set in preferences.")
-        elif addon_prefs.bloodTextureFolder == ImportBuildMapPreferences.textureFolderInvalidText:
-            log.debug("The Blood texture folder is set invalid in preferences.")
-        else:
-            log.debug("The Blood texture folder is set to: %s" % addon_prefs.bloodTextureFolder)
-            self.bloodTextureFolder = addon_prefs.bloodTextureFolder
-        
-        if (self.textureFolder is None) and (self.userArtTextureFolder is None) and (self.bloodTextureFolder is None):
-            log.warning("No Texture Folder specified. Materials will be black. Specify in: Edit > Preferences > Add-ons > Import-Export: Import BUILD Map format")
-            self.report({'WARNING'}, "No Texture Folder specified. Materials will be black. Specify in: Edit > Preferences > Add-ons > Import-Export: Import BUILD Map format")
         
         try:
             bmap = BuildMap(self.filepath, self.heuristicWallSearch, self.ignoreErrors)
@@ -306,10 +315,25 @@ class ImportBuildMap(bpy.types.Operator, ImportHelper):
             self.report({'ERROR'}, f"Parsing file failed! Exception: {e}")
             return {'CANCELLED'}
         else:
+            if bmap.is_blood_map:
+                log.debug("Using Blood Texture Folders.")
+                self.selectedTextureFolder = self._get_texture_folder(addon_prefs.bloodTextureFolder, "Blood")
+                if self.useUserArt:
+                    self.selectedUserArtTextureFolder = self._get_texture_folder(addon_prefs.bloodUserArtTextureFolder, "Blood Priority/Mod")
+            if not bmap.is_blood_map or ((self.selectedTextureFolder is None) and (self.selectedUserArtTextureFolder is None)):  ## Get folders for normal map type or fallback for Blood
+                log.debug("Using Normal Texture Folders.")
+                self.selectedTextureFolder = self._get_texture_folder(addon_prefs.textureFolder, "")
+                if self.useUserArt:
+                    self.selectedUserArtTextureFolder = self._get_texture_folder(addon_prefs.userArtTextureFolder, "Priority/Mod")
+        
+            if (self.selectedTextureFolder is None) and (self.selectedUserArtTextureFolder is None):
+                log.warning("No Texture Folder specified for this map type. Materials will be black. Specify in: Edit > Preferences > Add-ons > Import-Export: Import BUILD Map format")
+                self.report({'WARNING'}, "No Texture Folder specified for this map type. Materials will be black. Specify in: Edit > Preferences > Add-ons > Import-Export: Import BUILD Map format")
+                
             required_picnums = bmap.get_required_picnums()
             required_picnums_count = len(required_picnums)
             log.debug(f"required_picnums ({required_picnums_count}): {required_picnums}")
-            tex_importer = texture_importer.TextureImporter(folders=[self.userArtTextureFolder, self.textureFolder], parse_png_jpg_first=False)  ## TODO select folders based on map type (default or blood)
+            tex_importer = texture_importer.TextureImporter(folders=[self.selectedUserArtTextureFolder, self.selectedTextureFolder], parse_png_jpg_first=False)  ## TODO select folders based on map type (default or blood)
             picnum_dict, remaining_picnums = tex_importer.run(required_picnums)
             log.debug(f"remaining_picnums ({len(remaining_picnums)}): {remaining_picnums}")
             log.debug(f"picnum_dict {len(picnum_dict)}: {picnum_dict}")
@@ -320,9 +344,8 @@ class ImportBuildMap(bpy.types.Operator, ImportHelper):
             matManager = buildmap_materialmanager.materialManager(
                 bmap,
                 picnum_dict,
-                self.textureFolder,
-                self.userArtTextureFolder,
-                self.bloodTextureFolder,
+                self.selectedTextureFolder,
+                self.selectedUserArtTextureFolder,
                 self.reuseExistingMaterials,
                 self.sampleClosestTexel,
                 self.shadeToVertexColors,

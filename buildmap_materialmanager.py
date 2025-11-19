@@ -34,7 +34,7 @@ log = logging.getLogger(__name__)
 
 
 class materialManager:
-    def __init__(self, bmap, picnum_dict, texFolder, userArtTexFolder, bloodTexFolder, reuseExistingMaterials=True, sampleClosestTexel=True, shadeToVertexColors=True, proceduralMaterialEffects=False, useBackfaceCulling=False):
+    def __init__(self, bmap, picnum_dict, texFolder, userArtTexFolder, reuseExistingMaterials=True, sampleClosestTexel=True, shadeToVertexColors=True, proceduralMaterialEffects=False, useBackfaceCulling=False):
         log.debug("materialManager init with texFolder: %s  userArtTexFolder: %s  sampleClosestTexel: %s  shadeToVertexColors: %s" % (texFolder, userArtTexFolder, sampleClosestTexel, shadeToVertexColors))
         self.blversion = bpy.app.version
         self.picnum_dict = picnum_dict
@@ -57,17 +57,12 @@ class materialManager:
                 continue
             self.existingMats[existingMat.name] = existingMat
         
-        if bmap.is_blood_map and (bloodTexFolder is not None) and (os.path.exists(bloodTexFolder)):
-            self.textureFolder = bloodTexFolder
+        if (texFolder is not None) and (os.path.exists(texFolder)):
+            self.textureFolder = texFolder
             TextureImporter.fillFileMap(self.textureFolder, self.texFileMap)
-            log.debug(f"{self.__class__.__name__} - Using Blood Texture Folder: {self.textureFolder}")
-        else:
-            if (texFolder is not None) and (os.path.exists(texFolder)):
-                self.textureFolder = texFolder
-                TextureImporter.fillFileMap(self.textureFolder, self.texFileMap)
-            if (userArtTexFolder is not None) and (os.path.exists(userArtTexFolder)):
-                self.userArtTextureFolder = userArtTexFolder
-                TextureImporter.fillFileMap(self.userArtTextureFolder, self.userArtTexFileMap)
+        if (userArtTexFolder is not None) and (os.path.exists(userArtTexFolder)):
+            self.userArtTextureFolder = userArtTexFolder
+            TextureImporter.fillFileMap(self.userArtTextureFolder, self.userArtTexFileMap)
     
     def getTextureFileNameDefault(self, picnum):
         return "%04d.png" % picnum
