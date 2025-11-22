@@ -246,10 +246,15 @@ class ImportBuildMap(bpy.types.Operator, ImportHelper):
         default = 0,
         unit = 'LENGTH')
     useUserArt : bpy.props.BoolProperty(
-        name="Use Priority/Mod Textures",
+        name="Use Priority/Mod Folder",
         description = ("If a Priority/Mod texture folder is specified in the Add-on preferences you can use this option to enable or disable the usage of Priority/Mod textures.\n"
                        "These textures will take priority over the normal Texture folder"),
         default = True)
+    loadPngJpgFirst : bpy.props.BoolProperty(
+        name="Prioritize .png/.jpg files",
+        description = ("If enabled, the Add-on will first search for .png and .jpg files, prioritizing them over native game .art files.\n"
+                       "This is not encouraged because native game .art files offer additional meta information used e.g. for correct sprite offsets"),
+        default = False)
     reuseExistingMaterials : bpy.props.BoolProperty(
         name="Reuse Materials",
         description = ("If enabled, materials that already exist in the blend file, having the same name as this Add-on would create, will be reused instead of creating new ones.\n"
@@ -333,7 +338,7 @@ class ImportBuildMap(bpy.types.Operator, ImportHelper):
             required_picnums = bmap.get_required_picnums()
             required_picnums_count = len(required_picnums)
             log.debug(f"required_picnums ({required_picnums_count}): {required_picnums}")
-            tex_importer = texture_importer.TextureImporter(folders=[self.selectedUserArtTextureFolder, self.selectedTextureFolder], is_blood_map=bmap.is_blood_map, parse_png_jpg_first=False)  ## TODO select folders based on map type (default or blood)
+            tex_importer = texture_importer.TextureImporter(folders=[self.selectedUserArtTextureFolder, self.selectedTextureFolder], is_blood_map=bmap.is_blood_map, parse_png_jpg_first=self.loadPngJpgFirst)
             picnum_dict, remaining_picnums = tex_importer.run(required_picnums)
             log.debug(f"remaining_picnums ({len(remaining_picnums)}): {remaining_picnums}")
             log.debug(f"picnum_dict {len(picnum_dict)}: {picnum_dict}")
