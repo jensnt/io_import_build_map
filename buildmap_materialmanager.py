@@ -126,7 +126,7 @@ class materialManager:
                 file_or_archive_path = img_path_legacy,
                 path_is_image_file   = file_valid,
                 file_or_entry_length = file_size,
-                is_in_archive        = False,
+                archive_type         = None,
                 art_picanm_available = False
             )
             if img_legacy is not None:

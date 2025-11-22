@@ -26,6 +26,7 @@ import re
 import struct
 import fnmatch
 import logging
+from enum import Enum
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple, Set, Iterator
 import collections
@@ -35,19 +36,86 @@ log = logging.getLogger(__name__)
 
 
 
+def _decrypt_fileinfo_bytes(data: bytes, info: "FileInfo") -> bytes:
+    """
+    Apply archive-specific decryption to the given data block, if needed.
+    Currently handles RFF entries with the 0x10 encryption flag.
+    """
+    if info.rff_encrypted:
+        buf = bytearray(data)
+        limit = min(256, len(buf))
+        for i in range(limit):
+            buf[i] ^= (i >> 1)
+        #log.debug(f"Decrypted: {info.path_with_entry}")
+        return bytes(buf)
+    return data
+
+def read_fileinfo_bytes(info: "FileInfo", length: Optional[int] = None) -> Optional[bytes]:
+    """
+    Open the the file at file_or_archive_path, seek to the correct offset
+    (for archive entries) and read file_or_entry_length bytes or a custom length.
+    Applies archive-specific decryption if needed.
+    """
+    try:
+        with open(info.file_or_archive_path, "rb") as f:
+            if info.is_in_archive and info.archive_entry_offset is not None:
+                f.seek(info.archive_entry_offset)
+            read_len = info.file_or_entry_length if length is None else length
+            if read_len is None or read_len <= 0:
+                return None
+            data = f.read(read_len)
+    except Exception as exc:
+        log.warning(f"Failed to read data for {info.path_with_entry}: {exc}")
+        return None
+    return _decrypt_fileinfo_bytes(data, info)
+
+def decode_rff_mtime(mtime: int) -> str:
+    """
+    Convert a DOS-packed RFF mtime into a human-readable timestamp string.
+    Format: 'YYYY-MM-DD HH:MM:SS'
+    If mtime is 0, return an empty string.
+    """
+    if mtime == 0:
+        return ""
+    time_part = mtime & 0xFFFF
+    date_part = (mtime >> 16) & 0xFFFF
+    second = (time_part & 0x1F) * 2
+    minute = (time_part >> 5) & 0x3F
+    hour   = (time_part >> 11) & 0x1F
+    day   = date_part & 0x1F
+    month = (date_part >> 5) & 0x0F
+    year  = 1980 + ((date_part >> 9) & 0x7F)
+    return f"{year:04d}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}:{second:02d}"
+
+
+
+class ArchiveType(Enum):
+    GRP = "GRP"
+    RFF = "RFF"
+
 @dataclass
 class FileInfo:
     ## absolute path to file or archive containing it
     file_or_archive_path: str
     ## length of the file or entry in bytes
     file_or_entry_length: int
-    ## Set path_is_image_file to True if the path is an image file that blender can load directly.
+    ## Set path_is_image_file to True if the path is an image file that Blender can load directly.
     path_is_image_file: bool = False
+   
     ## archive info in case file is contained in an archive
-    is_in_archive: bool = False  ## If this file is e.g. an .ART for that was searched for, this will not count as is_in_archive if it was found directly in the file system and not in e.g. an .GRP file.
     archive_entry_name:   Optional[str] = None
     archive_entry_offset: Optional[int] = None
+    archive_type:         Optional[ArchiveType] = None
+    ## version of the RFF archive format, e.g.: 0x0200, 0x0300, 0x0301
+    rff_version: Optional[int] = None
+    ## raw flags value from an RFF dictionary entry
+    rff_flags: Optional[int] = None
     
+    ## If this file is e.g. an .ART for that was searched for, this will not count as is_in_archive if it was found directly in the file system and not in e.g. an .GRP/.RFF file.
+    @property
+    def is_in_archive(self) -> bool:
+        return self.archive_type is not None
+
     @property
     def path_with_entry(self) -> str:
         if self.is_in_archive and self.archive_entry_name:
@@ -66,6 +134,14 @@ class FileInfo:
         if self.path_is_image_file and self.file_or_archive_path:
             return self.file_or_archive_path
         return None
+    
+    @property
+    def rff_encrypted(self) -> bool:
+        return (
+            self.archive_type == ArchiveType.RFF
+            and self.rff_flags is not None
+            and (self.rff_flags & 0x10) != 0
+        )
 
 @dataclass
 class PicnumEntry(FileInfo):
@@ -88,23 +164,36 @@ class PicnumEntry(FileInfo):
 
 class FileWalker:
     """
-    Walks list of folders in given order
+    Walks through list of folders in given order
     and yields matches for a filename pattern (supports '*' wildcard)
     found either as file in the folder or inside an archive.
-
+    
     Priority within each folder:
       1) Loose files in the root directory (alphabetical)
-      2) Archives (.GRP) in the root directory (alphabetical), entries in order listed in archive
+      2) Archives (.GRP/.RFF) in the root directory (alphabetical), entries in order listed in archive
       3) Subfolders (alphabetical), each processed with the same rules
     """
     
-    ## TODO Create an option if archives (e.g. .GRP) should be searched or not. But atm. the FileWalker is only used in cases where that would be the case.
-
-    def __init__(self, root_folders: List[str], filename_pattern: str):
+    GRP_SUFFIX = ".grp"
+    RFF_SUFFIX = ".rff"
+    RFF_ENTRY_SIZE = 48
+    
+    def __init__(self, root_folders: List[str], filename_pattern: str, search_grp: bool = True, search_rff: bool = False):
         self.root_folder_paths: List[Path] = [Path(p).resolve() for p in root_folders if p]
         self.filename_pattern = filename_pattern.lower()
+        self.search_grp = search_grp
+        self.search_rff = search_rff
         self._generator = self._iterate_all()
-
+        ## Tuple of archive extensinos we want to include in the search
+        self.archive_extensions: Tuple[str, ...] = tuple()
+        if self.search_grp and self.search_rff:
+            self.archive_extensions = (self.GRP_SUFFIX, self.RFF_SUFFIX)
+        elif self.search_grp:
+            self.archive_extensions = (self.GRP_SUFFIX,)
+        elif self.search_rff:
+            self.archive_extensions = (self.RFF_SUFFIX,)
+        log.debug(f"FileWalker initialized with  filename_pattern:{self.filename_pattern}  search_grp:{self.search_grp}  search_rff:{self.search_rff}  folders:{self.root_folder_paths}")
+    
     def get_next(self) -> Optional[FileInfo]:
         ## Returns the next match as FileInfo,
         ## or None if no more matches are available.
@@ -112,7 +201,7 @@ class FileWalker:
             return next(self._generator)
         except StopIteration:
             return None
-
+    
     def _iterate_all(self) -> Iterator[FileInfo]:
         ## perform breadth-first search over folders, archives and subfolders
         processed_folders = set()
@@ -135,13 +224,16 @@ class FileWalker:
                     yield file_info
 
                 ## 3) Enqueue subfolders
-                subfolders = sorted((p for p in current_folder.iterdir() if p.is_dir()), key=lambda p: p.name.lower())
+                try:
+                    subfolders = sorted((p for p in current_folder.iterdir() if p.is_dir()), key=lambda p: p.name.lower())
+                except Exception:
+                    continue
                 for folder in subfolders:
                     folder_queue.append(folder)
-
+    
     def _name_matches(self, name: str) -> bool:
         return fnmatch.fnmatch(name.lower(), self.filename_pattern)
-
+    
     def _iterate_file_matches_in_folder(self, folder: Path) -> Iterator[FileInfo]:
         try:
             entries = sorted((p for p in folder.iterdir() if p.is_file()), key=lambda p: p.name.lower())
@@ -156,20 +248,27 @@ class FileWalker:
                 yield FileInfo(
                     file_or_archive_path = str(f.resolve()),
                     file_or_entry_length = int(size),
-                    is_in_archive        = False
+                    archive_type         = None
                 )
-
+    
     def _iterate_archive_matches_in_folder(self, folder: Path) -> Iterator[FileInfo]:
         try:
-            archives = sorted((p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in (".grp",)), key=lambda p: p.name.lower())
+            archives = sorted(
+                (p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in self.archive_extensions),
+                key=lambda p: p.name.lower()
+            )
         except Exception:
             return
+        
         for archive in archives:
-            if archive.suffix.lower() == ".grp":
+            suffix = archive.suffix.lower()
+            if suffix == self.GRP_SUFFIX and self.search_grp:
                 for match in self._iterate_grp_matches(archive):
                     yield match
-            # TODO: add .RFF parsing
-
+            elif suffix == self.RFF_SUFFIX and self.search_rff:
+                for match in self._iterate_rff_matches(archive):
+                    yield match
+    
     def _iterate_grp_matches(self, grp_path: Path) -> Iterator[FileInfo]:
         """
         Parse a .GRP (Build engine group file) and yield entries matching the pattern.
@@ -190,17 +289,19 @@ class FileWalker:
             except Exception:
                 log.warning(f"Unable to read .GRP file size! File: {grp_path}")
                 return
-            ## sanity check - return if file is below grp minimum size
+            
+            ## sanity check - return if file is below grp minimum header size
             if grp_size is None or grp_size < 32:
                 log.warning(f".GRP file is below minimum size! File: {grp_path}")
                 return
             
             with open(grp_path, "rb") as f:
-                ## Read magic number and file count
+                ## Read magic number
                 magic = f.read(12)
-                if (len(magic) != 12) or (magic != b"KenSilverman"):
-                    log.warning(f".GRP file is not starting with expected magic number \"KenSilverman\"! File: {grp_path}")
+                if magic != b"KenSilverman":
+                    log.warning(f".GRP file has invalid magic header! File: {grp_path}")
                     return
+                
                 file_count_raw = f.read(4)
                 if len(file_count_raw) != 4:
                     log.warning(f"Unable to read file count from .GRP file! File: {grp_path}")
@@ -212,7 +313,7 @@ class FileWalker:
                 if grp_size < grp_header_size:
                     log.warning(f".GRP file too small to fit header! File: {grp_path}")
                     return
-
+                
                 ## Read file name and size entries
                 names: List[str] = []
                 sizes: List[int] = []
@@ -229,13 +330,18 @@ class FileWalker:
                     file_name = name_raw.split(b"\x00", 1)[0].decode("ascii", errors="ignore").strip()
                     names.append(file_name)
                     sizes.append(int(file_size))
-
+                
                 ## Build offsets list
                 offsets: List[int] = []
                 current_offset = grp_header_size
                 for file_size in sizes:
                     offsets.append(current_offset)
                     current_offset += file_size
+                
+                ## sanity check - last offset must be inside file
+                if current_offset > grp_size:
+                    log.warning(f".GRP file has invalid file table (data beyond end of file)! File: {grp_path}")
+                    return
                 
                 ## Iterate over entries alphabetically by entry name (case-insensitive)
                 #for idx in sorted(range(file_count), key=lambda i: names[i].lower()):
@@ -252,10 +358,140 @@ class FileWalker:
                     yield FileInfo(
                         file_or_archive_path = str(grp_path.resolve()),
                         file_or_entry_length = int(file_size),
-                        is_in_archive        = True,
+                        archive_type         = ArchiveType.GRP,
                         archive_entry_name   = entry_name,
                         archive_entry_offset = int(file_offset),
                     )
+        except Exception:
+            return
+    
+    def _iterate_rff_matches(self, rff_path: Path) -> Iterator[FileInfo]:
+        """
+        Parse an .RFF archive (Blood resource file) and yield entries matching the pattern.
+        Supports versions 0x0200, 0x0300 and 0x0301.
+        RFF File Structure (simplified):
+          - 4 bytes:  magic number "RFF\x1A"
+          - 2 bytes:  version (0x0200, 0x0300, 0x0301)
+          - 2 bytes:  pad1
+          - 4 bytes:  dictOffset
+          - 4 bytes:  dictEntries
+          - 16 bytes: pad2
+          - dictEntries * 48 bytes: FAT entries
+          - file data at offsets specified in FAT
+        """
+        try:
+            basename = os.path.basename(rff_path)
+            rff_size = None
+            try:
+                rff_size = rff_path.stat().st_size
+            except Exception:
+                log.warning(f"Unable to read .RFF file size! File: {rff_path}")
+                return
+            
+            ## sanity check - return if file is below rff minimum header size
+            if rff_size is None or rff_size < 32:
+                log.warning(f".RFF file is below minimum size! File: {rff_path}")
+                return
+            
+            with open(rff_path, "rb") as f:
+                ## Read magic number
+                magic = f.read(4)
+                if magic != b"RFF\x1a":
+                    log.warning(f".RFF file has invalid magic number! File: {rff_path}")
+                    return
+                
+                rff_header = f.read(28)
+                if len(rff_header) != 28:
+                    log.warning(f"Unable to read .RFF header! File: {rff_path}")
+                    return
+                
+                version, pad1, dict_offset, dict_entries, pad2 = struct.unpack("<H2sII16s", rff_header)
+                
+                major = version & 0xFF00
+                #if version not in (0x0200, 0x0300, 0x0301):
+                if major not in (0x0200, 0x0300):
+                    log.warning(f"Unsupported .RFF version 0x{version:04X} in file: {rff_path}")
+                    return
+                log.debug(f"Reading RFF-File:{rff_path}  version:0x{version:04X}  dict_offset:{dict_offset}  dict_entries:{dict_entries}")
+                
+                if dict_entries == 0:
+                    log.warning(f".RFF file has 0 file entries! File: {rff_path}")
+                    return
+                
+                fat_size = dict_entries * self.RFF_ENTRY_SIZE
+                
+                ## sanity check - FAT must be inside file
+                if dict_offset < 32 or dict_offset + fat_size > rff_size:
+                    log.warning(f".RFF file has invalid FAT range! File: {rff_path}")
+                    return
+                
+                f.seek(dict_offset)
+                fat_data = f.read(fat_size)
+                if len(fat_data) != fat_size:
+                    log.warning(f"Unable to read .RFF FAT! File: {rff_path}")
+                    return
+                
+                ## decrypt FAT
+                if major == 0x0300:
+                    fat_bytes = bytearray(fat_data)
+                    key = (dict_offset + (version & 0x00FF) * dict_offset) & 0xFFFF
+                    for i in range(len(fat_bytes)):
+                        fat_bytes[i] ^= ((key >> 1) & 0xFF)
+                        key = (key + 1) & 0xFFFF
+                    fat_data = bytes(fat_bytes)
+                
+                ## parse FAT entries
+                for i in range(dict_entries):
+                    entry_data = fat_data[i * self.RFF_ENTRY_SIZE : (i + 1) * self.RFF_ENTRY_SIZE]
+                    if len(entry_data) != self.RFF_ENTRY_SIZE:
+                        log.debug(f"Skipping {basename} Entry ({i}) with len(entry_data):{len(entry_data)} != self.RFF_ENTRY_SIZE:{self.RFF_ENTRY_SIZE}!")
+                        continue
+                    (
+                        cachenode,      # 16-byte cache header (unused by Blood/Build tools)
+                        offset,         # Offset of file data inside the RFF
+                        size,           # Uncompressed size of the file data
+                        packed_size,    # Compressed size (0 or same as size if uncompressed)
+                        mtime,          # Last modified timestamp (DOS format)
+                        flags,          # Bitfield: encryption, external file, compression
+                        type_bytes,     # 3-char file extension (ASCII, zero-padded)
+                        name_bytes,     # 8-char base filename (ASCII, zero-padded)
+                        file_id,        # Internal file ID
+                    ) = struct.unpack("<16sIIIIB3s8sI", entry_data)
+                    
+                    ext  = type_bytes.split(b"\x00", 1)[0].decode("ascii", errors="ignore").strip()
+                    name = name_bytes.split(b"\x00", 1)[0].decode("ascii", errors="ignore").strip()
+                    file_name = f"{name}.{ext}" if ext else name
+                    
+                    ## Skip external files (not stored in the RFF itself)
+                    ## Bit 0x02 is kDictExternal according to documentation.
+                    if flags & 0x02:
+                        log.debug(f"Skipping {basename} Entry ({i}): \"{file_name}\"  Timestamp: {decode_rff_mtime(mtime)}  FileID:{file_id}  with Bit 0x02 (is kDictExternal) set!")
+                        continue
+                    
+                    ## sanity check - data must be inside file
+                    if offset < 0 or size < 0:
+                        log.debug(f"Skipping {basename} Entry ({i}): \"{file_name}\" with invalid offset:{offset} or size:{size}!")
+                        continue
+                    if offset + size > rff_size:
+                        log.debug(f"Skipping {basename} Entry ({i}): \"{file_name}\" with offset:{offset} + size:{size} > rff_size:{rff_size}!")
+                        continue
+                    
+                    ## Skip file if name does not match requested pattern
+                    if not self._name_matches(file_name):
+                        #log.debug(f"Skipping {basename} Entry ({i}): \"{file_name}\"  Timestamp: {decode_rff_mtime(mtime)}  FileID:{file_id}  with filename not matching.")  ## Comment out for less spam
+                        continue
+                    
+                    log.debug(f"Yielding {basename} Entry ({i}): \"{file_name}\"  Size:{size}  Offset:{offset}  Flags:0x{flags:02X} = 0b{flags:08b}  FileID:{file_id}  Timestamp:{decode_rff_mtime(mtime)}  packed_size:{packed_size}  cachenode:{cachenode}")
+                    yield FileInfo(
+                        file_or_archive_path = str(rff_path.resolve()),
+                        file_or_entry_length = int(size),
+                        archive_type         = ArchiveType.RFF,
+                        archive_entry_name   = file_name,
+                        archive_entry_offset = int(offset),
+                        rff_version          = int(version),
+                        rff_flags            = int(flags),
+                    )
+                log.debug(f"End of Entries reached for {basename}.")
         except Exception:
             return
 
@@ -265,8 +501,9 @@ class TextureImporter:
     PICNUM_USER_ART_START = 3584
     DEFAULT_TILE_DIM = (32, 32)
     
-    def __init__(self, folders: List[str], parse_png_jpg_first: bool = False, transparent_index: int = 255):
+    def __init__(self, folders: List[str], is_blood_map: bool = False, parse_png_jpg_first: bool = False, transparent_index: int = 255):
         self.folders = folders
+        self.is_blood_map = is_blood_map
         self.parse_png_jpg_first = parse_png_jpg_first
         self.transparent_index = transparent_index
         self.palette: Optional[List[Tuple[float, float, float]]] = None
@@ -381,23 +618,34 @@ class TextureImporter:
         http://justsolve.archiveteam.org/wiki/DAT_(Duke_Nukem_3D)
         https://wiki.eduke32.com/wiki/Palette_data_files
         """
-        walker = FileWalker(folders, "PALETTE.DAT")
+        color_range_multilier = 4.0  ## Using 6-bit VGA palette (0-63) for default BUILD Palette
+        #color_range_multilier = 4.047619048  ## (255/63) Should this be used?  Otherwise: 4*63 = 252 = 0xFC = brightest possible
+        if self.is_blood_map:
+            color_range_multilier = 1.0  ## Blood uses the full 8-bit
+        
+        if self.is_blood_map:
+            ## Only BLOOD.PAL is needed.
+            ## WATER.PAL, BEAST.PAL, SEWER.PAL and INVULN1.PAL only offer different (whole screen) shadings
+            ## in case the player is under the water, sewer, has beast vision or invulnerable status
+            walker = FileWalker(folders, "BLOOD.PAL", search_grp=False, search_rff=True)  
+        else:
+            walker = FileWalker(folders, "PALETTE.DAT", search_grp=True, search_rff=False)
+        
         while (info := walker.get_next()):
             try:
                 if info.file_or_entry_length is not None and info.file_or_entry_length < 768:
                     continue  ## Skip too short files
-                with open(info.file_or_archive_path, "rb") as f:
-                    if info.archive_entry_offset:
-                        f.seek(info.archive_entry_offset)
-                    data = f.read(768)  ## read palette section
-                if len(data) == 768:
-                    log.info(f"Using palette: {info.path_with_entry}")
-                    ## Convert 6-bit VGA palette (0-63) -> float RGB (0.0-1.0)
-                    return [(data[i]*4/255.0, data[i+1]*4/255.0, data[i+2]*4/255.0) for i in range(0, 768, 3)]
+                data = read_fileinfo_bytes(info, length=768)  ## read palette section
+                if not data or len(data) != 768:
+                    continue
+                ## TODO Here we could also check if all data is in range 0-63 or above to decide the color_range_multilier.
+                log.info(f"Using palette: {info.path_with_entry}")
+                ## Convert palette to float RGB (0.0-1.0)
+                return [(data[i]*color_range_multilier/255.0, data[i+1]*color_range_multilier/255.0, data[i+2]*color_range_multilier/255.0) for i in range(0, 768, 3)]
             except Exception as e:
                 log.warning(f"Failed to read palette from {info.path_with_entry}: {e}")
                 continue
-        log.warning("No valid PALETTE.DAT found! .ART files can not be parsed!")
+        log.warning("No valid color palette file found! .ART files can not be parsed!")
         return None
     
     def _load_png_jpg(self, required: Set[int], folders_to_process: List[str], picnum_dict_out: Dict[int, PicnumEntry]):
@@ -421,7 +669,7 @@ class TextureImporter:
                 file_or_archive_path = imgFilePath,
                 path_is_image_file   = True,
                 file_or_entry_length = os.path.getsize(imgFilePath),
-                is_in_archive        = False,
+                archive_type         = None,
                 art_picanm_available = False
             )
             
@@ -436,7 +684,10 @@ class TextureImporter:
         if not self.palette:
             return
 
-        walker = FileWalker(folders_to_process, "*.ART")
+        if self.is_blood_map:
+            walker = FileWalker(folders_to_process, "*.ART", search_grp=False, search_rff=True)
+        else:
+            walker = FileWalker(folders_to_process, "*.ART", search_grp=True, search_rff=False)
         while required:
             info = walker.get_next()
             if not info:
@@ -444,15 +695,11 @@ class TextureImporter:
             info.path_is_image_file = False
             log.debug(f"Reading: {info.path_with_entry}")
             if not info.file_or_entry_length or info.file_or_entry_length <= 0:
-                log.warning(f"Skipping {'.GRP entry' if info.is_in_archive else '.ART file'} with invalid length! File: {info.path_with_entry}")
+                log.warning(f"Skipping {'Archive entry' if info.is_in_archive else '.ART file'} with invalid length! File: {info.path_with_entry}")
                 continue
-            try:
-                with open(info.file_or_archive_path, "rb") as f:
-                    if info.archive_entry_offset:
-                        f.seek(info.archive_entry_offset)
-                    art_bytes = f.read(info.file_or_entry_length)
-            except Exception as e:
-                log.warning(f"Failed to read ART: {e}")
+            art_bytes = read_fileinfo_bytes(info)
+            if not art_bytes:
+                log.warning(f"Failed to read ART data for {info.path_with_entry}")
                 continue
             
             self._parse_art(art_bytes, info, required, picnum_dict_out)
@@ -512,7 +759,9 @@ class TextureImporter:
                 file_or_archive_path = info.file_or_archive_path,
                 path_is_image_file   = False,
                 file_or_entry_length = info.file_or_entry_length,
-                is_in_archive        = info.is_in_archive,
+                archive_type         = info.archive_type,
+                rff_version          = info.rff_version,
+                rff_flags            = info.rff_flags,
                 archive_entry_name   = info.archive_entry_name,
                 archive_entry_offset = info.archive_entry_offset,
                 art_byte_offset      = pos,
@@ -554,28 +803,30 @@ class TextureImporter:
         
         img.pixels = buf
         img.pack()
-        #img.use_fake_user = True
+        #img.use_fake_user = True  ## Don't set the fake user because images might go unused in case existing materials are reused for example. In that case not setting the fake user ensures that unused images get cleaned up.
         return img
     
     @staticmethod
     def write_image_props(img: bpy.types.Image, entry: PicnumEntry):
         props = {
             "schema_version": 1,
-            "tile_index": int(entry.tile_index or 0),
+            "tile_index":           int(entry.tile_index or 0),
             "file_or_archive_path": entry.file_or_archive_path or "",
             "file_or_entry_length": int(entry.file_or_entry_length or 0),
             "path_is_image_file":   bool(entry.path_is_image_file),
-            "is_in_archive": bool(entry.is_in_archive),
-            "archive_entry_name": entry.archive_entry_name or "",
+            "archive_type":         entry.archive_type.name if entry.archive_type is not None else "",
+            "rff_version":          int(entry.rff_version) if entry.rff_version is not None else 0,
+            "rff_flags":            int(entry.rff_flags)   if entry.rff_flags   is not None else 0,
+            "archive_entry_name":   entry.archive_entry_name or "",
             "archive_entry_offset": int(entry.archive_entry_offset or 0),
-            "art_byte_offset": int(entry.art_byte_offset or 0),
-            "def_filepath": entry.def_filepath or "",
+            "art_byte_offset":      int(entry.art_byte_offset or 0),
+            "def_filepath":         entry.def_filepath or "",
             "art_picanm_available": bool(entry.art_picanm_available),
-            "anim_type": int(entry.anim_type),
-            "anim_speed": int(entry.anim_speed),
-            "anim_framecount": int(entry.anim_framecount),
-            "center_offset_x": int(entry.center_offset_x),
-            "center_offset_y": int(entry.center_offset_y),
+            "anim_type":            int(entry.anim_type),
+            "anim_speed":           int(entry.anim_speed),
+            "anim_framecount":      int(entry.anim_framecount),
+            "center_offset_x":      int(entry.center_offset_x),
+            "center_offset_y":      int(entry.center_offset_y),
         }
         img["build_tile_props"] = props
     
@@ -615,13 +866,24 @@ class TextureImporter:
         if schema_version != 1:
             log.debug(f"Unexpected build_tile_props schema_version {schema_version} on image '{img.name}'")
         
+        archive_type_str = get_str("archive_type", None)
+        archive_type: Optional[ArchiveType] = None
+        if archive_type_str:
+            try:
+                archive_type = ArchiveType[archive_type_str.upper()]
+            except KeyError:
+                archive_type = None
+                log.debug(f"Unknown archive_type '{archive_type_str}' on image '{img.name}'")
+        
         entry = PicnumEntry(
             tile_index           = get_int("tile_index", None),
             image                = img,
             file_or_archive_path = get_str("file_or_archive_path", ""),
             file_or_entry_length = get_int("file_or_entry_length", 0),
             path_is_image_file   = get_bool("path_is_image_file", False),
-            is_in_archive        = get_bool("is_in_archive", False),
+            archive_type         = archive_type,
+            rff_version          = get_int("rff_version", None),
+            rff_flags            = get_int("rff_flags", None),
             archive_entry_name   = get_str("archive_entry_name", None),
             archive_entry_offset = get_int("archive_entry_offset", None),
             art_byte_offset      = get_int("art_byte_offset", None),

@@ -333,7 +333,7 @@ class ImportBuildMap(bpy.types.Operator, ImportHelper):
             required_picnums = bmap.get_required_picnums()
             required_picnums_count = len(required_picnums)
             log.debug(f"required_picnums ({required_picnums_count}): {required_picnums}")
-            tex_importer = texture_importer.TextureImporter(folders=[self.selectedUserArtTextureFolder, self.selectedTextureFolder], parse_png_jpg_first=False)  ## TODO select folders based on map type (default or blood)
+            tex_importer = texture_importer.TextureImporter(folders=[self.selectedUserArtTextureFolder, self.selectedTextureFolder], is_blood_map=bmap.is_blood_map, parse_png_jpg_first=False)  ## TODO select folders based on map type (default or blood)
             picnum_dict, remaining_picnums = tex_importer.run(required_picnums)
             log.debug(f"remaining_picnums ({len(remaining_picnums)}): {remaining_picnums}")
             log.debug(f"picnum_dict {len(picnum_dict)}: {picnum_dict}")
