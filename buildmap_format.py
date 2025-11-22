@@ -891,10 +891,22 @@ class BuildMapBase(ABC):
             raise ValueError(errorMsg)
     
     def calculateShadeColor(self, shade):
+        ## observed shade values for Duke Nukem 3D: -128, -50, -5, 0 to 30
+        ## observed shade values for Blood: -128, -8, 0 to 63
+        max_shade_in  = 30 if not self.is_blood_map else 63
+        min_shade_out = 0.0 if not self.is_blood_map else 0.1
         if shade <= 0:
             return (1.0, 1.0, 1.0, 1.0)
-        elif shade >= 30:
-            return (0.0, 0.0, 0.0, 1.0)
+        if shade >= max_shade_in:
+            return (min_shade_out, min_shade_out, min_shade_out, 1.0)
+        
+        if self.is_blood_map:
+            if shade <= 0:
+                v = 1.0
+            else:
+                shade_intensity_ratio = min(shade, max_shade_in) / max_shade_in
+                v = 1.0 - ((1.0 - min_shade_out) * shade_intensity_ratio)
+            return (v, v, v, 1.0)
         else:
             r = -(0.000432*shade*shade) -(0.021012*shade) + (0.986183)
             g = -(0.000256*shade*shade) -(0.025906*shade) + (0.980335)
