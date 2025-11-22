@@ -117,76 +117,85 @@ class ImportBuildMapPreferences(bpy.types.AddonPreferences):
         else:
             log.error(self.textureFolderInvalidText)
             return self.textureFolderInvalidText
-
+    
+    folder_tex_name =         "Game/Texture folder"
+    folder_tex_description = ("Select a folder that contains your game or texture files.\n"
+                              "Native game files like .ART, .GRP and PALETTE.DAT will be parsed as well as .png and .jpg")
+    
+    folder_tex_prio_name =         "Priority/Mod Texture folder"
+    folder_tex_prio_description = ("Select an optional folder for Custom/Mod game or texture files.\n"
+                                   "This folder will take priority over the normal Game/Texture folder")
+    
+    folder_tex_blood_name =         "Blood - Game/Texture folder"
+    folder_tex_blood_description = ("Select a folder that contains your Blood game or texture files.\n"
+                                    "Native game files like .ART, .RFF and BLOOD.PAL will be parsed as well as .png and .jpg.\n"
+                                    "If left empty, the other folders will be used for Blood maps")
+    
+    folder_tex_blood_prio_name =         "Blood - Priority/Mod Texture folder"
+    folder_tex_blood_prio_description = ("Select an optional folder for Custom/Mod Blood game or texture files.\n"
+                                         "This folder will take priority over the normal Blood - Game/Texture folder")
+    
     if blender_version >= (5, 0, 0):
         textureFolder : bpy.props.StringProperty(
-            name = "Game/Texture folder",
+            name = folder_tex_name,
             default = "",
-            description = "Select a folder that contains your game or texture files.\n"
-                          "Native game files like .ART, .GRP and PALETTE.DAT will be parsed as well as .png and .jpg",
+            description = folder_tex_description,
             subtype = 'DIR_PATH',
             get_transform = getTextureFolder_transform,
             set_transform = setTextureFolder_transform)
         
         userArtTextureFolder : bpy.props.StringProperty(
-            name = "Priority/Mod Texture folder",
+            name = folder_tex_prio_name,
             default = "",
-            description = "Select an optional folder for Custom/Mod textures.\n"
-                          "This folder will take priority over the normal Game/Texture folder",
+            description = folder_tex_prio_description,
             subtype = 'DIR_PATH',
             get_transform = getTextureFolder_transform,
             set_transform = setTextureFolder_transform)
         
         bloodTextureFolder : bpy.props.StringProperty(
-            name = "Blood - Game/Texture folder",
+            name = folder_tex_blood_name,
             default = "",
-            description = "Select a folder that contains your Blood game or texture files.\n"
-                          "Native game files like .ART, .RFF and BLOOD.PAL will be parsed as well as .png and .jpg.\n"
-                          "If left empty, the other folders will be used for Blood maps",
+            description = folder_tex_blood_description,
             subtype = 'DIR_PATH',
             get_transform = getTextureFolder_transform,
             set_transform = setTextureFolder_transform)
         
         bloodUserArtTextureFolder : bpy.props.StringProperty(
-            name = "Blood - Priority/Mod Texture folder",
+            name = folder_tex_blood_prio_name,
             default = "",
-            description = "Select an optional folder for Custom/Mod Blood textures.\n"
-                          "This folder will take priority over the normal Blood - Game/Texture folder",
+            description = folder_tex_blood_prio_description,
             subtype = 'DIR_PATH',
             get_transform = getTextureFolder_transform,
             set_transform = setTextureFolder_transform)
     else:
         textureFolder : bpy.props.StringProperty(
-            name = "Game/Texture folder",
+            name = folder_tex_name,
             default = "",
-            description = "Select a folder that contains your game or textures",
+            description = folder_tex_description,
             subtype = 'DIR_PATH',
             get = getTextureFolder_legacy,
             set = setTextureFolder_legacy)
         
         userArtTextureFolder : bpy.props.StringProperty(
-            name = "Priority/Mod Texture folder",
+            name = folder_tex_prio_name,
             default = "",
-            description = "Select an optional folder for Custom/Mod Textures. "
-                          "This folder will take priority over the normal Texture folder",
+            description = folder_tex_prio_description,
             subtype = 'DIR_PATH',
             get = getUaTextureFolder_legacy,
             set = setUaTextureFolder_legacy)
         
         bloodTextureFolder : bpy.props.StringProperty(
-            name = "Blood - Game/Texture folder",
+            name = folder_tex_blood_name,
             default = "",
-            description = "Select a folder that contains your Blood game or textures. "
-                          "If left empty, the other folders will be used for Blood maps",
+            description = folder_tex_blood_description,
             subtype = 'DIR_PATH',
             get = getBloodTextureFolder_legacy,
             set = setBloodTextureFolder_legacy)
         
         bloodUserArtTextureFolder : bpy.props.StringProperty(
-            name = "Blood - Priority/Mod Texture folder",
+            name = folder_tex_blood_prio_name,
             default = "",
-            description = "Select an optional folder for Custom/Mod Blood Textures. "
-                          "This folder will take priority over the normal Blood Texture folder",
+            description = folder_tex_blood_prio_description,
             subtype = 'DIR_PATH',
             get = getBloodUaTextureFolder_legacy,
             set = setBloodUaTextureFolder_legacy)
