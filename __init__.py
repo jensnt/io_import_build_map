@@ -122,7 +122,8 @@ class ImportBuildMapPreferences(bpy.types.AddonPreferences):
         textureFolder : bpy.props.StringProperty(
             name = "Game/Texture folder",
             default = "",
-            description = "Select a folder that contains your game or textures",
+            description = "Select a folder that contains your game or texture files.\n"
+                          "Native game files like .ART, .GRP and PALETTE.DAT will be parsed as well as .png and .jpg",
             subtype = 'DIR_PATH',
             get_transform = getTextureFolder_transform,
             set_transform = setTextureFolder_transform)
@@ -130,8 +131,8 @@ class ImportBuildMapPreferences(bpy.types.AddonPreferences):
         userArtTextureFolder : bpy.props.StringProperty(
             name = "Priority/Mod Texture folder",
             default = "",
-            description = "Select an optional folder for Custom/Mod Textures. "
-                          "This folder will take priority over the normal Texture folder",
+            description = "Select an optional folder for Custom/Mod textures.\n"
+                          "This folder will take priority over the normal Game/Texture folder",
             subtype = 'DIR_PATH',
             get_transform = getTextureFolder_transform,
             set_transform = setTextureFolder_transform)
@@ -139,7 +140,8 @@ class ImportBuildMapPreferences(bpy.types.AddonPreferences):
         bloodTextureFolder : bpy.props.StringProperty(
             name = "Blood - Game/Texture folder",
             default = "",
-            description = "Select a folder that contains your Blood game or textures. "
+            description = "Select a folder that contains your Blood game or texture files.\n"
+                          "Native game files like .ART, .RFF and BLOOD.PAL will be parsed as well as .png and .jpg.\n"
                           "If left empty, the other folders will be used for Blood maps",
             subtype = 'DIR_PATH',
             get_transform = getTextureFolder_transform,
@@ -148,8 +150,8 @@ class ImportBuildMapPreferences(bpy.types.AddonPreferences):
         bloodUserArtTextureFolder : bpy.props.StringProperty(
             name = "Blood - Priority/Mod Texture folder",
             default = "",
-            description = "Select an optional folder for Custom/Mod Blood Textures. "
-                          "This folder will take priority over the normal Blood Texture folder",
+            description = "Select an optional folder for Custom/Mod Blood textures.\n"
+                          "This folder will take priority over the normal Blood - Game/Texture folder",
             subtype = 'DIR_PATH',
             get_transform = getTextureFolder_transform,
             set_transform = setTextureFolder_transform)
