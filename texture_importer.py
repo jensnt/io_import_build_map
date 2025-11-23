@@ -499,6 +499,7 @@ class FileWalker:
 
 class TextureImporter:
     PICNUM_USER_ART_START = 3584
+    MAX_PICNUM = 32767
     DEFAULT_TILE_DIM = (32, 32)
     
     def __init__(self, folders: List[str], is_blood_map: bool = False, parse_png_jpg_first: bool = False, transparent_index: int = 255):
@@ -864,7 +865,11 @@ class TextureImporter:
 
         schema_version = get_int("schema_version", 1)
         if schema_version != 1:
-            log.debug(f"Unexpected build_tile_props schema_version {schema_version} on image '{img.name}'")
+            log.warning(f"Unexpected build_tile_props schema_version {schema_version} on image '{img.name}'")
+        
+        tile_index = get_int("tile_index", None)
+        if (tile_index is None) or (tile_index < 0) or (tile_index > TextureImporter.MAX_PICNUM):
+            return None
         
         archive_type_str = get_str("archive_type", None)
         archive_type: Optional[ArchiveType] = None
@@ -876,7 +881,7 @@ class TextureImporter:
                 log.debug(f"Unknown archive_type '{archive_type_str}' on image '{img.name}'")
         
         entry = PicnumEntry(
-            tile_index           = get_int("tile_index", None),
+            tile_index           = tile_index,
             image                = img,
             file_or_archive_path = get_str("file_or_archive_path", ""),
             file_or_entry_length = get_int("file_or_entry_length", 0),
