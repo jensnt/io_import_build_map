@@ -135,42 +135,61 @@ class materialManager:
         
         ## Reuse an existing material
         if self.reuseExistingMaterials and (existingMat is not None):
-            ## Set default values to use if nothing better can be found in next steps
+            existing_img = None
+            recovered_picnum_entry = None
             reused_picnum_entry = picnum_entry
             reused_size = TextureImporter.DEFAULT_TILE_DIM
             if reused_picnum_entry.image is not None:
                 reused_size = reused_picnum_entry.image.size
             
-            ## Get a list of possible names to check
-            image_names_to_check = [TextureImporter.getImgName(picnum), self.getTextureFileNameDefault(picnum)]
-            if picnum_entry.image_file_path is not None:
-                image_names_to_check.append(os.path.basename(picnum_entry.image_file_path))
-            if picnum_entry.image is not None:
-                image_names_to_check.append(picnum_entry.image.name)
-                if picnum_entry.image.filepath:
-                    image_names_to_check.append(os.path.basename(picnum_entry.image.filepath))
-            log.debug(f"Checking in existing material {existingMat.name} for names: {image_names_to_check}")
-            
-            ## Try to find an image node in the existing material with matching image file path or name to get the dimensions and PicnumEntry properties from.
-            existing_img = None
+            ## Try to find an image node in the existing material containing a picnum_entry
             for node in existingMat.node_tree.nodes:
                 img = getattr(node, "image", None)
                 if (node.type == 'TEX_IMAGE') and (img is not None):
-                    img_file_name = os.path.basename(img.filepath) if img.filepath else None
-                    if ((img_file_name is not None) and (img_file_name in image_names_to_check)) or (img.name in image_names_to_check):
+                    recovered_picnum_entry = TextureImporter.get_picnum_entry_from_image(img)
+                    if recovered_picnum_entry is not None:
                         existing_img = img
+                        log.debug(f"Image Node with image name {img.name} found in existing material {matName} by picnum_entry. (picnum:{recovered_picnum_entry.tile_index} center_offset_x:{recovered_picnum_entry.center_offset_x} center_offset_y:{recovered_picnum_entry.center_offset_y} path_with_entry:{recovered_picnum_entry.path_with_entry})")
                         break
-                    if ((img_file_name is not None) and regexDefault.match(img_file_name)) or regexDefault.match(img.name):
-                        existing_img = img
-                        log.debug("Image Node in existing material %s found using regex." % matName)
-                        break
+            
+            if recovered_picnum_entry is None:
+                ## Get a list of possible names to check
+                image_names_to_check = [TextureImporter.getImgName(picnum), self.getTextureFileNameDefault(picnum)]
+                if picnum_entry.image_file_path is not None:
+                    image_names_to_check.append(os.path.basename(picnum_entry.image_file_path))
+                if picnum_entry.image is not None:
+                    image_names_to_check.append(picnum_entry.image.name)
+                    if picnum_entry.image.filepath:
+                        image_names_to_check.append(os.path.basename(picnum_entry.image.filepath))
+                log.debug(f"Checking in existing material {existingMat.name} for names: {image_names_to_check}")
+                
+                ## Try to find an image node in the existing material with matching image file path or name to get the dimensions and PicnumEntry properties from.
+                for node in existingMat.node_tree.nodes:
+                    img = getattr(node, "image", None)
+                    if (node.type == 'TEX_IMAGE') and (img is not None):
+                        img_file_name = os.path.basename(img.filepath) if img.filepath else None
+                        if ((img_file_name is not None) and (img_file_name in image_names_to_check)) or (img.name in image_names_to_check):
+                            existing_img = img
+                            log.debug(f"Image Node with image name {img.name} found in existing material {matName} by name.")
+                            break
+                        if ((img_file_name is not None) and regexDefault.match(img_file_name)) or regexDefault.match(img.name):
+                            existing_img = img
+                            log.debug(f"Image Node with image name {img.name} found in existing material {matName} using regex.")
+                            break
             
             if existing_img is not None:
                 reused_size = existing_img.size
-                recovered_picnum_entry = TextureImporter.get_picnum_entry_from_image(existing_img)
+                if recovered_picnum_entry is None:
+                    recovered_picnum_entry = TextureImporter.get_picnum_entry_from_image(existing_img)
                 if recovered_picnum_entry is not None:
                     reused_picnum_entry = recovered_picnum_entry
-                reused_picnum_entry.image = existing_img
+                else:
+                    reused_picnum_entry.image = existing_img
+                    reused_picnum_entry.file_or_entry_length = None
+                    existing_img_path = existing_img.filepath
+                    if existing_img_path is not None:
+                        reused_picnum_entry.file_or_archive_path = existing_img_path
+                        reused_picnum_entry.path_is_image_file   = True
             else:
                 log.debug(f"Found existing material \"{matName}\" but no matching image node! file_or_archive_path: {picnum_entry.file_or_archive_path}")
             
