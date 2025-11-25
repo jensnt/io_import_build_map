@@ -259,29 +259,37 @@ class BuildMapImporter:
             if spriteWithEqualData is None:
                 objCrtr = self.meshObjectCreator(self.matManager, name=sprite.getName(prefix=self.objectPrefix), shadeToVertexColors=shadeToVertexColors)
                 dims = self.matManager.getDimensions(sprite.data.picnum)
-                scale_x = dims[0] / 64
-                scale_y = dims[1] / 64
+                scale_x = dims[0] / 64.0
+                scale_y = dims[1] / 64.0
+                flip_x = sprite.isFlippedX()
+                flip_y = sprite.isFlippedY()
+                coff_x = 0.0 # - (scale_x % 2) / 64
+                coff_y = 0.0 # - (scale_y % 2) / 64
+                picnum_entry = self.matManager.getPicnumEntry(sprite.data.picnum)
+                if ((picnum_entry is not None) and picnum_entry.art_picanm_available and (picnum_entry.center_offset_x is not None) and (picnum_entry.center_offset_y is not None)):
+                    coff_x -= picnum_entry.center_offset_x / 32 * (-1.0 if flip_x else 1.0)
+                    coff_y += picnum_entry.center_offset_y / 32 * (-1.0 if flip_y else 1.0)
                 
                 if sprite.isFloorSprite():
-                    objCrtr.verts = [Vector((-1 * scale_y, -1 * scale_x, 0)),
-                                     Vector(( 1 * scale_y, -1 * scale_x, 0)),
-                                     Vector(( 1 * scale_y,  1 * scale_x, 0)),
-                                     Vector((-1 * scale_y,  1 * scale_x, 0))]
+                    objCrtr.verts = [Vector((-1 * scale_y + coff_y, -1 * scale_x + coff_x, 0)),
+                                     Vector(( 1 * scale_y + coff_y, -1 * scale_x + coff_x, 0)),
+                                     Vector(( 1 * scale_y + coff_y,  1 * scale_x + coff_x, 0)),
+                                     Vector((-1 * scale_y + coff_y,  1 * scale_x + coff_x, 0))]
                 elif sprite.isRealCentered():
-                    objCrtr.verts = [Vector((0,  1 * scale_x, -1 * scale_y)),
-                                     Vector((0,  1 * scale_x,  1 * scale_y)),
-                                     Vector((0, -1 * scale_x,  1 * scale_y)),
-                                     Vector((0, -1 * scale_x, -1 * scale_y))]
+                    objCrtr.verts = [Vector((0,  1 * scale_x + coff_x, -1 * scale_y + coff_y)),
+                                     Vector((0,  1 * scale_x + coff_x,  1 * scale_y + coff_y)),
+                                     Vector((0, -1 * scale_x + coff_x,  1 * scale_y + coff_y)),
+                                     Vector((0, -1 * scale_x + coff_x, -1 * scale_y + coff_y))]
                 else:
-                    objCrtr.verts = [Vector((0,  1 * scale_x, 0 * scale_y)),
-                                     Vector((0,  1 * scale_x, 2 * scale_y)),
-                                     Vector((0, -1 * scale_x, 2 * scale_y)),
-                                     Vector((0, -1 * scale_x, 0 * scale_y))]
+                    objCrtr.verts = [Vector((0,  1 * scale_x + coff_x, 0 * scale_y + coff_y)),
+                                     Vector((0,  1 * scale_x + coff_x, 2 * scale_y + coff_y)),
+                                     Vector((0, -1 * scale_x + coff_x, 2 * scale_y + coff_y)),
+                                     Vector((0, -1 * scale_x + coff_x, 0 * scale_y + coff_y))]
                 
+                ifx = int(flip_x)
+                ify = int(flip_y)
                 objCrtr.addFace([0, 1, 2, 3], sprite.data.picnum, sprite.getShadeColor())
-                flipX = int(sprite.isFlippedX())
-                flipY = int(sprite.isFlippedY())
-                objCrtr.vertUVs = [(1-flipX, flipY), (1-flipX, 1-flipY), (flipX, 1-flipY), (flipX, flipY)]
+                objCrtr.vertUVs = [(1-ifx, ify), (1-ifx, 1-ify), (ifx, 1-ify), (ifx, ify)]
                 newObj = objCrtr.create(collection)
                 spriteCache[sprite.getDataKey()] = newObj
             else:
