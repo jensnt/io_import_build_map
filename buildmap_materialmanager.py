@@ -307,19 +307,23 @@ class materialManager:
         self.dimensionsDict[picnum] = picnum_entry.image.size
         self.materialDict[picnum] = (newMat, picnum_entry)
         return (newMat, picnum_entry)
-
-    def getMaterial(self, picnum):
-        (mat, picnum_entry) = self.materialDict.get(picnum, (None, None))
-        if mat:
-            return mat
-        else:
-            (mat, picnum_entry) = self.__createMaterial(picnum)
-            return mat
     
-    def hasTexture(self, picnum) -> bool:
+    def getMatAndPicnumEntry(self, picnum: int) -> Tuple[bpy.types.Material, Optional[PicnumEntry]]:
         (mat, picnum_entry) = self.materialDict.get(picnum, (None, None))
-        if not mat:
+        if mat is None:
             (mat, picnum_entry) = self.__createMaterial(picnum)
+        return (mat, picnum_entry)
+    
+    def getMaterial(self, picnum: int) -> bpy.types.Material:
+        (mat, picnum_entry) = self.getMatAndPicnumEntry(picnum)
+        return mat
+    
+    def getPicnumEntry(self, picnum: int) -> Optional[PicnumEntry]:
+        (mat, picnum_entry) = self.getMatAndPicnumEntry(picnum)
+        return picnum_entry
+    
+    def hasTexture(self, picnum: int) -> bool:
+        (mat, picnum_entry) = self.getMatAndPicnumEntry(picnum)
         return bool(picnum_entry and picnum_entry.image is not None)
     
     def getDimensions(self, picnum):
