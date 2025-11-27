@@ -29,6 +29,7 @@ import logging
 from enum import Enum
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple, Set, Iterator
+from .buildmap_format import MapType, BuildMapBase
 import collections
 import bpy
 
@@ -146,6 +147,7 @@ class FileInfo:
 @dataclass
 class PicnumEntry(FileInfo):
     tile_index: Optional[int] = None
+    map_type:   Optional[MapType] = None
     image: Optional[bpy.types.Image] = None
     #maps: Dict[str, object] = field(default_factory=dict)  # TODO for future use with .DEF (albedo/normal/roughness/...)
     
@@ -502,9 +504,10 @@ class TextureImporter:
     MAX_PICNUM = 32767
     DEFAULT_TILE_DIM = (32, 32)
     
-    def __init__(self, folders: List[str], is_blood_map: bool = False, parse_png_jpg_first: bool = False, transparent_index: int = 255):
+    def __init__(self, bmap: BuildMapBase, folders: List[str], parse_png_jpg_first: bool = False, transparent_index: int = 255):
         self.folders = folders
-        self.is_blood_map = is_blood_map
+        self.map_type = bmap.map_type
+        self.is_blood_map = bmap.is_blood_map
         self.parse_png_jpg_first = parse_png_jpg_first
         self.transparent_index = transparent_index
         self.palette: Optional[List[Tuple[float, float, float]]] = None
@@ -556,8 +559,13 @@ class TextureImporter:
         return int(picnum % 256)
     
     @staticmethod
-    def getImgName(picnum: int) -> str:
-        return f"Tile_{picnum:04d}"
+    def getImgName(picnum: int, map_type: Optional[MapType], fallback: bool = False) -> str:
+        prefix = ""
+        if (map_type is not None) and (map_type == MapType.BUILD):
+            prefix = "Build_"
+        if (map_type is not None) and (map_type == MapType.BLOOD):
+            prefix = "Blood_"
+        return f"{prefix}Tile_{picnum:04d}{'_Fallback' if fallback else ''}"
     
     @staticmethod
     def fillFileMap(folder: str, filemap_out: Dict[str, str]):
@@ -660,12 +668,13 @@ class TextureImporter:
         for picnum in list(required):
             picnum_regex = re.compile(self.getTextureFileNamePattern(picnum), re.IGNORECASE)
             imgFilePath = self._findPicnumFile(picnum, picnum_regex, texFileMap, allowUserArtFallback=True)
-            img = self.tryLoadBlenderImage(imgFilePath, self.getImgName(picnum))
+            img = self.tryLoadBlenderImage(imgFilePath, self.getImgName(picnum, map_type=self.map_type, fallback=False))
             if not img:
                 continue
             
             entry = PicnumEntry(
                 tile_index = picnum,
+                map_type = self.map_type,
                 image = img,
                 file_or_archive_path = imgFilePath,
                 path_is_image_file   = True,
@@ -756,6 +765,7 @@ class TextureImporter:
             
             entry = PicnumEntry(
                 tile_index = tile_index,
+                map_type = self.map_type,
                 image = img,
                 file_or_archive_path = info.file_or_archive_path,
                 path_is_image_file   = False,
@@ -789,7 +799,7 @@ class TextureImporter:
         return frames, anim_type, xcenter, ycenter, anim_speed
     
     def _create_blender_image(self, picnum: int, w: int, h: int, pixels: bytes) -> bpy.types.Image:
-        img = bpy.data.images.new(self.getImgName(picnum), width=w, height=h, alpha=True)
+        img = bpy.data.images.new(self.getImgName(picnum, map_type=self.map_type, fallback=False), width=w, height=h, alpha=True)
         if not self.palette:
             return img
         
@@ -812,6 +822,7 @@ class TextureImporter:
         props = {
             "schema_version": 1,
             "tile_index":           int(entry.tile_index or 0),
+            "map_type":             entry.map_type.name if entry.map_type is not None else "",
             "file_or_archive_path": entry.file_or_archive_path or "",
             "file_or_entry_length": int(entry.file_or_entry_length or 0),
             "path_is_image_file":   bool(entry.path_is_image_file),
@@ -880,8 +891,18 @@ class TextureImporter:
                 archive_type = None
                 log.debug(f"Unknown archive_type '{archive_type_str}' on image '{img.name}'")
         
+        map_type_str = get_str("map_type", None)
+        map_type: Optional[MapType] = None
+        if map_type_str:
+            try:
+                map_type = MapType[map_type_str.upper()]
+            except KeyError:
+                map_type = None
+                log.debug(f"Unknown map_type '{map_type_str}' on image '{img.name}'")
+        
         entry = PicnumEntry(
             tile_index           = tile_index,
+            map_type             = map_type,
             image                = img,
             file_or_archive_path = get_str("file_or_archive_path", ""),
             file_or_entry_length = get_int("file_or_entry_length", 0),

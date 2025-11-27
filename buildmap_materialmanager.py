@@ -27,6 +27,7 @@ from typing import Optional, Tuple, Dict
 
 import bpy
 
+from .buildmap_format import MapType, BuildMapBase
 from .texture_importer import TextureImporter, PicnumEntry
 
 log = logging.getLogger(__name__)
@@ -34,9 +35,12 @@ log = logging.getLogger(__name__)
 
 
 class materialManager:
-    def __init__(self, bmap, picnum_dict, texFolder, userArtTexFolder, reuseExistingMaterials=True, sampleClosestTexel=True, shadeToVertexColors=True, proceduralMaterialEffects=False, useBackfaceCulling=False):
-        log.debug("materialManager init with texFolder: %s  userArtTexFolder: %s  sampleClosestTexel: %s  shadeToVertexColors: %s" % (texFolder, userArtTexFolder, sampleClosestTexel, shadeToVertexColors))
+    def __init__(self, bmap: BuildMapBase, picnum_dict, texFolder, userArtTexFolder, reuseExistingMaterials=True, sampleClosestTexel=True, shadeToVertexColors=True, proceduralMaterialEffects=False, useBackfaceCulling=False):
+        log.debug(f"materialManager init with texFolder: {texFolder}")
+        log.debug(f"materialManager init with userArtTexFolder: {userArtTexFolder}")
+        log.debug(f"materialManager init with reuseExistingMaterials: {reuseExistingMaterials}  sampleClosestTexel: {sampleClosestTexel}  shadeToVertexColors: {shadeToVertexColors}  proceduralMaterialEffects: {proceduralMaterialEffects}  useBackfaceCulling: {useBackfaceCulling}")
         self.blversion = bpy.app.version
+        self.bmap = bmap
         self.picnum_dict = picnum_dict
         self.textureFolder = None
         self.userArtTextureFolder = None
@@ -51,11 +55,12 @@ class materialManager:
         self.proceduralMaterialEffects = proceduralMaterialEffects
         self.useBackfaceCulling = useBackfaceCulling
         
-        for existingMat in bpy.data.materials:
-            if not existingMat.use_nodes or existingMat.node_tree is None:
-                log.debug(f"Material '{existingMat.name}' does not use nodes. Not adding to existing materials List.")
-                continue
-            self.existingMats[existingMat.name] = existingMat
+        if self.reuseExistingMaterials:
+            for existingMat in bpy.data.materials:
+                if not existingMat.use_nodes or existingMat.node_tree is None:
+                    log.debug(f"Material '{existingMat.name}' does not use nodes. Not adding to existing materials List.")
+                    continue
+                self.existingMats[existingMat.name] = existingMat
         
         if (texFolder is not None) and (os.path.exists(texFolder)):
             self.textureFolder = texFolder
@@ -68,6 +73,14 @@ class materialManager:
         return "%04d.png" % picnum
     
     def getMaterialName(self, picnum):
+        prefix = ""
+        if (self.bmap.map_type is not None) and (self.bmap.map_type == MapType.BUILD):
+            prefix = "Build_"
+        if (self.bmap.map_type is not None) and (self.bmap.map_type == MapType.BLOOD):
+            prefix = "Blood_"
+        return f"{prefix}Mat_{picnum:04d}"
+    
+    def getMaterialNameLegacy(self, picnum):
         return "picnum%04d_%03d-%03d" % (picnum, TextureImporter.getArtFileIndex(picnum), TextureImporter.getArtFileNumber(picnum))
     
     def findPicnumFile(self, picnum, regexDefault, texFileMap, userArtTexFileMap=None):
@@ -99,7 +112,12 @@ class materialManager:
     
     def __createMaterial(self, picnum) -> Tuple[bpy.types.Material, Optional[PicnumEntry]]:
         matName = self.getMaterialName(picnum)
-        existingMat = self.existingMats.get(matName, None)
+        matNameLegacy = self.getMaterialNameLegacy(picnum)
+        existingMat = None
+        if self.reuseExistingMaterials:
+            existingMat = self.existingMats.get(matName, None)
+            if existingMat is None:
+                existingMat = self.existingMats.get(matNameLegacy, None)
         regexDefault = re.compile(TextureImporter.getTextureFileNamePattern(picnum), re.IGNORECASE)
         
         picnum_entry = self.picnum_dict.get(picnum, None)
@@ -112,7 +130,7 @@ class materialManager:
             if img_path_legacy and os.path.exists(img_path_legacy) and os.path.isfile(img_path_legacy):
                 ## Load the image here already, even if we might still be reusing an existing material so this image might not be used.
                 ## We should normally not get here anyway if the new texture_importer works correctly and images loaded by the texture_importer might go unused as well in the same way anyway.
-                img_legacy = TextureImporter.tryLoadBlenderImage(img_path_legacy, TextureImporter.getImgName(picnum))
+                img_legacy = TextureImporter.tryLoadBlenderImage(img_path_legacy, TextureImporter.getImgName(picnum, map_type=self.bmap.map_type, fallback=False))
                 if img_legacy is not None:
                     file_valid = True
                     file_size = os.path.getsize(img_path_legacy)
@@ -122,6 +140,7 @@ class materialManager:
             ## Generate a PicnumEntry in any case for the following code to work with and to assign to this material, even if no valid file was found.
             picnum_entry = PicnumEntry(
                 tile_index = picnum,
+                map_type = self.bmap.map_type,
                 image = img_legacy,
                 file_or_archive_path = img_path_legacy,
                 path_is_image_file   = file_valid,
@@ -134,6 +153,7 @@ class materialManager:
         
         
         ## Reuse an existing material
+        ## Must allow for materials even without image and materials that the user created without restrictions
         if self.reuseExistingMaterials and (existingMat is not None):
             existing_img = None
             recovered_picnum_entry = None
@@ -154,7 +174,7 @@ class materialManager:
             
             if recovered_picnum_entry is None:
                 ## Get a list of possible names to check
-                image_names_to_check = [TextureImporter.getImgName(picnum), self.getTextureFileNameDefault(picnum)]
+                image_names_to_check = [TextureImporter.getImgName(picnum, map_type=self.bmap.map_type, fallback=False), TextureImporter.getImgName(picnum, map_type=None, fallback=False), self.getTextureFileNameDefault(picnum)]
                 if picnum_entry.image_file_path is not None:
                     image_names_to_check.append(os.path.basename(picnum_entry.image_file_path))
                 if picnum_entry.image is not None:
@@ -201,7 +221,7 @@ class materialManager:
         ## Make sure we have at least a fallback image to work with if no texture is available
         if picnum_entry.image is None:
             picnum_entry.image = bpy.data.images.new(
-                name = TextureImporter.getImgName(picnum),
+                name = TextureImporter.getImgName(picnum, map_type=self.bmap.map_type, fallback=True),
                 width = TextureImporter.DEFAULT_TILE_DIM[0],
                 height = TextureImporter.DEFAULT_TILE_DIM[1],
                 alpha = True,

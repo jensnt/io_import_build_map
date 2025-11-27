@@ -37,6 +37,12 @@ log = logging.getLogger(__name__)
 
 
 
+class MapType(Enum):
+    BUILD = "BUILD"
+    BLOOD = "BLOOD"
+
+
+
 class BuildSector:
     def __init__(self):
         self.data        = None
@@ -695,6 +701,7 @@ class BuildMapBase(ABC):
         self.mapFilePath = mapFilePath
         self.heuristicWallSearch = heuristicWallSearch
         self.ignoreErrors = ignoreErrors
+        self.map_type = None
         if not isinstance(self.mapFilePath, str) or not os.path.isfile(self.mapFilePath):
             self.handleError(ignorable=False, errorMsg=f"File not found: {self.mapFilePath}")
             return
@@ -702,7 +709,7 @@ class BuildMapBase(ABC):
         self.mapFileSize = os.path.getsize(self.mapFilePath)
         log.debug(f"Opening file ({self.mapFileSize} Bytes): {self.mapFilePath}")
         self.readMapFile()
-        log.debug(f"Map Type: {'Blood' if self.is_blood_map else 'Build'}")
+        log.debug(f"Map Type: {self.map_type.name if self.map_type is not None else 'NONE'}")
         log.debug(f"TROR Supported: {self.tror_supported}")
         
 
@@ -792,6 +799,10 @@ class BuildMapBase(ABC):
                                                      (math.cos(sect.walls[0].angle) * -1 * sect.slopeAbs[lvl.name])))
 
         log.debug(f"Finished parsing file: {self.mapFilePath}")
+    
+    @property
+    def is_blood_map(self) -> bool:
+        return True if self.map_type == MapType.BLOOD else False
 
     @abstractmethod
     def _validate(self, mapFile): pass
@@ -817,7 +828,6 @@ class BuildMapBase(ABC):
             self.sectors: List[BuildSector] = []
             self.walls:   List[BuildWall]   = []
             self.sprites: List[BuildSprite] = []
-            self.is_blood_map = None
             self.tror_supported = None
             
             self._validate(mapFile)
@@ -943,7 +953,7 @@ class BuildMap(BuildMapBase):
             self.handleError(ignorable=False, errorMsg=f"Unsupported file version {self.data.mapversion_major}! Only BUILD Maps in version 7, 8 and 9 are supported.")
             return
         log.debug(f"mapversion_major: {self.data.mapversion_major}  mapversion_minor: {self.data.mapversion_minor}.")
-        self.is_blood_map = False
+        self.map_type = MapType.BUILD
         self.tror_supported = True if (self.data.mapversion_major >= 9) else False
         return
 
@@ -1006,7 +1016,7 @@ class BuildMapBlood(BuildMapBase):
         if (self.data.mapversion_major, self.data.mapversion_minor) not in self.SUPPORTED_VERSIONS:
             self.handleError(ignorable=False, errorMsg=f"Detected Blood Map Format v{self.data.mapversion_major}.{self.data.mapversion_minor}{' (encrypted)' if encrypted else ''}. This is not yet supported!")
         log.debug(f"mapversion_major: {self.data.mapversion_major}  mapversion_minor: {self.data.mapversion_minor}{' (encrypted)' if encrypted else ''}.")
-        self.is_blood_map = True
+        self.map_type = MapType.BLOOD
         self.tror_supported = True
         return
     
