@@ -6,7 +6,7 @@ Find it on the Blender Extensions Platform: [BUILD Map Importer](https://extensi
 
 You can find an example map and textures in the file **example-map-and-textures.zip** in the [latest Release](https://github.com/jensnt/io_import_build_map/releases/latest)
 
-Starting with version 1.4.0 you can now simply set your **games installation folder** as your Texture folder!  
+Starting with version 1.4.0 you can now simply set your **game installation folder** as your Texture folder!  
 Textures will be automatically extracted from .ART, .GRP and .RFF files. (.png/.jpg files still work)
 
 ![E1L1](/images/e1l1.png)
@@ -35,11 +35,11 @@ Then browse for the zip file you downloaded and click `Install Add-on`.
 ## Setting Texture Folder Paths
 ![Preferences](/images/preferences.png)
 
-The Add-on has it's own preferences where you can set paths to your texture folders.  
-Starting with version 1.4.0 you can now directly set your **games installation folders** here!  
+In the Add-on preferences you can set the paths to your texture folders.  
+Starting with version 1.4.0 you can now directly set your **game installation folders** here!  
 Textures will be automatically extracted from .ART, .GRP and .RFF files.  
 
-The old way of extracting textures from games manually is still supported. See: [Extracting textures](https://github.com/jensnt/io_import_build_map#extracting-textures)
+The old way of extracting textures from games manually as .png files is still supported. See: [Extracting textures](https://github.com/jensnt/io_import_build_map#extracting-textures)
 
 You can also use the texture folder from the file **example-map-and-textures.zip** you can find in the [latest Version](https://github.com/jensnt/io_import_build_map/releases/latest).  
 It contains a small set of free textures for the example map **SHOCK.MAP**.  
