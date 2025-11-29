@@ -2,7 +2,12 @@
 This Blender Add-on allows you to import maps in the BUILD format as used by games such as Blood or Duke Nukem 3D.  
 It’s a great way to explore countless community-made usermaps or breathe new life into your own creations.  
 
+Find it on the Blender Extensions Platform: [BUILD Map Importer](https://extensions.blender.org/add-ons/io-import-build-map/)
+
 You can find an example map and textures in the file **example-map-and-textures.zip** in the [latest Release](https://github.com/jensnt/io_import_build_map/releases/latest)
+
+Starting with version 1.4.0 you can now simply set your **games installation folder** as your Texture folder!  
+Textures will be automatically extracted from .ART, .GRP and .RFF files. (.png/.jpg files still work)
 
 ![E1L1](/images/e1l1.png)
 
@@ -30,12 +35,16 @@ Then browse for the zip file you downloaded and click `Install Add-on`.
 ## Setting Texture Folder Paths
 ![Preferences](/images/preferences.png)
 
-The Add-on has it's own preferences where you can set the path to your texture folders.  
-Here you can use the texture folder from the file **example-map-and-textures.zip** you can find in the [latest Version](https://github.com/jensnt/io_import_build_map/releases/latest).  
-It contains a small set of free textures for the example map **SHOCK.MAP**.  
-Or you can use textures from a game if you own a copy. See: [Getting textures](https://github.com/jensnt/io_import_build_map#getting-original-textures)
+The Add-on has it's own preferences where you can set paths to your texture folders.  
+Starting with version 1.4.0 you can now directly set your **games installation folders** here!  
+Textures will be automatically extracted from .ART, .GRP and .RFF files.  
 
-#### All textures need to be PNG or JPG files and use one of the following numbering formats as name:
+The old way of extracting textures from games manually is still supported. See: [Extracting textures](https://github.com/jensnt/io_import_build_map#extracting-textures)
+
+You can also use the texture folder from the file **example-map-and-textures.zip** you can find in the [latest Version](https://github.com/jensnt/io_import_build_map/releases/latest).  
+It contains a small set of free textures for the example map **SHOCK.MAP**.  
+
+#### If you are providing PNG or JPG files as textures, they need to use one of the following numbering formats as name:
 - As created by the Xtract tool: 056-002.png
 - BUILD tile number as name: 0568.png or tile0568.png (up to 8 leading zeros allowed)
 
@@ -62,10 +71,13 @@ The following Import Options are available:
   - Separate wall sprites from walls as specified by this offset.  
     This is useful to avoid Z-fighting.  
     A small offset like 0.01 m is enough in many cases.
-- **Use Custom User Art**
-  - If a Custom User Art texture folder is specified in the Add-on preferences you can use this option to enable or disable the usage of Custom User Art textures.  
-    These textures will take preference over the normal Texture folder within the User Art Range.  
-    The User Art Range starts with picnum 3584, which is "000-014.png".
+- **Use Priority/Mod Folder**
+  - If a Priority/Mod texture folder is specified in the Add-on preferences,  
+    you can use this option to enable or disable the usage of Priority/Mod textures.  
+    These textures will take priority over the normal Texture folder.
+- **Prioritize .png/.jpg files**
+  - If enabled, the Add-on will first search for .png and .jpg files, prioritizing them over native game .art files.
+    This is not encouraged because native game .art files offer additional meta information used e.g. for correct sprite offsets.
 - **Reuse Materials**
   - If enabled, materials that already exist in the blend file, having the same name as this Add-on would create, will be reused instead of creating new ones.  
     If disabled, new materials will be created with a suffix.
@@ -94,7 +106,7 @@ This allows for debugging maps or for reusing those properties in Blender.
 
 ![Custom Properties](/images/custom-props.png)
 
-## Getting textures
+## Extracting textures
 You can use the textures from the file **example-map-and-textures.zip** you can find in the [latest Version](https://github.com/jensnt/io_import_build_map/releases/latest).  
 Another small free set of compatible textures is available in this project:  
 https://github.com/LukeKenTeam/LukeKen3D
