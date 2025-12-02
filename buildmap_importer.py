@@ -210,6 +210,7 @@ class BuildMapImporter:
     
     
     def addSprites(self, wallSpriteOffset, scaleSpritesLikeInGame=True, shadeToVertexColors=True):
+        log.debug(f"Adding Sprites")
         spriteCollection = bpy.data.collections.new(f"{self.objectPrefix}Sprites")
         self.mapCollection.children.link(spriteCollection)
         colFaceSprites = bpy.data.collections.new(f"{self.objectPrefix}FaceSprites")
@@ -233,8 +234,11 @@ class BuildMapImporter:
         spriteCollection.children.link(colNoTextureSprites)
         spriteCache = dict()
         
+        total_sprites = max(1, self.bmap.data.numsprites)
+        step_sprites  = max(1, total_sprites // 100)
         for sprite in self.bmap.sprites:
-            self.wm.progress_update(sprite.spriteIndex / self.bmap.data.numsprites)
+            if (sprite.spriteIndex % step_sprites) == 0:
+                self.wm.progress_update(sprite.spriteIndex / total_sprites)
             
             if sprite.isEnemy():
                 collection = colEnemySprites
@@ -436,6 +440,7 @@ class BuildMapImporter:
     
     
     def addMapGeometry(self, splitSectors, splitWalls, splitSky, shadeToVertexColors=True):
+        log.debug(f"Adding Map Geometry")
         collectionMapGeo = bpy.data.collections.new("%sMap"%self.objectPrefix)
         self.mapCollection.children.link(collectionMapGeo)
         if splitWalls:
@@ -448,8 +453,11 @@ class BuildMapImporter:
         objCrtrMap = self.meshObjectCreator(self.matManager, name="%sMapGeometry"%self.objectPrefix, shadeToVertexColors=shadeToVertexColors)
         objCrtrSky = self.meshObjectCreator(self.matManager, name="%sMapGeometry_Sky"%self.objectPrefix, shadeToVertexColors=shadeToVertexColors)
         
+        total_sectors = max(1, self.bmap.data.numsectors)
+        step_sectors  = max(1, total_sectors // 100)
         for sector in self.bmap.getSectors():
-            self.wm.progress_update(sector.sectorIndex / self.bmap.data.numsectors)
+            if (sector.sectorIndex % step_sectors) == 0:
+                self.wm.progress_update(sector.sectorIndex / total_sectors)
             
             ## Try to get polygon partitions from blenders tessellate_polygon method
             ## This can fail on degenerate geometry
